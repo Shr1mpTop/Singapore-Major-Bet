@@ -40,7 +40,7 @@ export default function Dashboard() {
       ],
       functionName: 'bet',
       args: [BigInt(selectedTeam)],
-      value: parseEther(betAmount),
+      value: BigInt(betAmount), // 直接使用Wei
       gasLimit: 100000n // 设置gas limit
     });
   };
@@ -49,7 +49,7 @@ export default function Dashboard() {
     if (!teams || !status) return 0;
     const team = teams.find(t => t.id === teamId);
     if (!team) return 0;
-    const userAmount = parseFloat(amount) || 0;
+    const userAmount = parseFloat(amount) / 10**18 || 0; // amount是Wei，转为Ether
     const totalPool = parseFloat(status.total_prize_pool_wei) / 10**18;
     const teamPool = parseFloat(team.total_bet_wei) / 10**18;
     const newTotal = totalPool + userAmount;
@@ -103,7 +103,7 @@ export default function Dashboard() {
                     <CardTitle className="text-yellow-400">{team.name}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-slate-400">总下注: {(parseFloat(team.total_bet_wei) / 10**18).toFixed(4)} ETH</p>
+                    <p className="text-sm text-slate-400">总下注: {team.total_bet_wei} Wei</p>
                     <p className="text-sm text-slate-400">支持者: {team.supporters}</p>
                     <Dialog>
                       <DialogTrigger asChild>
@@ -115,7 +115,7 @@ export default function Dashboard() {
                         <DialogHeader>
                           <DialogTitle className="text-yellow-400">下注 {team.name}</DialogTitle>
                           <DialogDescription className="text-slate-400">
-                            请输入下注金额并确认交易。
+                            请输入下注金额 (Wei) 并确认交易。
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
@@ -125,7 +125,7 @@ export default function Dashboard() {
                               type="number"
                               value={betAmount}
                               onChange={(e) => setBetAmount(e.target.value)}
-                              placeholder="0.01"
+                              placeholder="10000000000000000"
                               className="bg-slate-700 border-slate-600"
                             />
                           </div>

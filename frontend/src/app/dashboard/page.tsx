@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTeams, useStatus } from '@/hooks/useBackendData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
+import { useQueryClient } from '@tanstack/react-query';
 
 // 合约ABI - bet函数
 const BET_ABI = [
@@ -23,7 +24,7 @@ const BET_ABI = [
 ] as const;
 
 // 合约地址
-const CONTRACT_ADDRESS = '0x34f339aabb5887cba8c536905D1A0554bd7DA94A' as `0x${string}`;
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb5c4bea741cea63b2151d719b2cca12e80e6c7e8' as `0x${string}`;
 
 // 单个队伍的下注卡片组件
 function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; total_bet_wei: string; supporters: number }; totalPool: number }) {
@@ -31,18 +32,54 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
   const [isOpen, setIsOpen] = useState(false);
   
   const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const queryClient = useQueryClient();
+  const { address } = useAccount();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
+  useEffect(() => {
+    if (isSuccess && address) {
+      // 记录用户下注到后端数据库（事件监听器会自动同步链上数据）
+      fetch('http://localhost:5001/api/record_bet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userAddress: address,
+          teamId: team.id,
+          amount: (parseEther(betAmount)).toString(),  // Wei string
+        }),
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => console.log('Bet recorded:', data))
+      .catch((error) => {
+        console.error('Record bet error:', error);
+        alert('记录下注失败，请检查后端。');
+      });
+      
+      // 注意：不再需要手动调用sync，事件监听器会自动处理数据同步
+      // 数据会在几秒内通过事件监听器自动更新
+      
+      // 关闭弹窗
+      setIsOpen(false);
+      setBetAmount('');
+      reset();
+    }
+  }, [isSuccess, address, team.id, betAmount, queryClient, reset]);
+
   const calculateOdds = () => {
     const userAmount = parseFloat(betAmount) || 0;
     const teamPool = parseFloat(team.total_bet_wei) / 10**18;
-    const newTotal = totalPool + userAmount;
-    const newTeam = teamPool + userAmount;
-    if (newTeam === 0) return 0;
-    return (newTotal * 0.9) / newTeam;
+    const totalPoolAmount = parseFloat(status?.total_prize_pool_wei || '0') / 10**18;
+    const finalPool = totalPoolAmount * 0.9;
+    if (teamPool === 0) return 0;
+    return (userAmount / teamPool) * finalPool;
   };
 
   const handleBet = () => {
@@ -67,13 +104,14 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
       functionName: 'bet',
       args: [BigInt(team.id)],
       value: amountInWei,
+      gas: 100000n, // 设置 gas limit
     });
   };
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (!open) {
-      // 关闭时重置状态
+    if (!open && !isSuccess) {
+      // 关闭时重置状态，如果不是成功关闭
       setBetAmount('');
       reset();
     }
@@ -115,8 +153,7 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
               </div>
               {betAmount && parseFloat(betAmount) > 0 && (
                 <div className="p-4 bg-slate-700 rounded">
-                  <p className="text-sm text-white">预计回报倍数: {calculateOdds().toFixed(2)}x</p>
-                  <p className="text-sm text-slate-400">如果获胜，预计可得: {(parseFloat(betAmount) * calculateOdds()).toFixed(6)} ETH</p>
+                  <p className="text-sm text-white">预计收益: {calculateOdds().toFixed(6)} ETH</p>
                 </div>
               )}
               {error && (
@@ -175,6 +212,21 @@ export default function Dashboard() {
         <div className="text-center">
           <h1 className="text-2xl mb-4 text-white">请先连接钱包</h1>
           <ConnectButton />
+        </div>
+      </div>
+    );
+  }
+
+  // 检查游戏状态
+  if (status && status.status !== 0) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <h1 className="text-2xl mb-4">投注已关闭</h1>
+          <p className="text-slate-400">当前状态：{status.status_text}</p>
+          {status.winning_team_id !== null && status.winning_team_id !== 0 && (
+            <p className="text-yellow-400 mt-2">获胜队伍ID: {status.winning_team_id}</p>
+          )}
         </div>
       </div>
     );

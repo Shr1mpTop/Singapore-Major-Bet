@@ -1,12 +1,13 @@
 import os
 import json
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from web3 import Web3
 from dotenv import load_dotenv
 import threading
 import time
+from datetime import datetime
 
 # 1. 初始化配置
 load_dotenv()
@@ -20,7 +21,14 @@ db = SQLAlchemy(app)
 
 # 配置 Web3
 rpc_url = os.getenv("RPC_URL")
-contract_address = Web3.to_checksum_address(os.getenv("CONTRACT_ADDRESS"))
+if not rpc_url:
+    raise ValueError("RPC_URL not set in .env")
+
+contract_address_str = os.getenv("CONTRACT_ADDRESS")
+if not contract_address_str:
+    raise ValueError("CONTRACT_ADDRESS not set in .env")
+
+contract_address = Web3.to_checksum_address(contract_address_str)
 web3 = Web3(Web3.HTTPProvider(rpc_url))
 
 # 加载 ABI
@@ -38,12 +46,21 @@ class GameState(db.Model):
     total_prize_pool = db.Column(db.String(50), default="0") # 存 Wei (大整数用字符串存)
     winning_team_id = db.Column(db.Integer, nullable=True)
 
+
 class Team(db.Model):
     """存储战队信息"""
     id = db.Column(db.Integer, primary_key=True) # 对应合约里的 teamId
     name = db.Column(db.String(100))
     total_bet_amount = db.Column(db.String(50), default="0") # Wei
     supporter_count = db.Column(db.Integer, default=0)
+
+class UserBet(db.Model):
+    """记录每个用户的下注"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_address = db.Column(db.String(42))  # ETH 地址
+    team_id = db.Column(db.Integer)
+    amount_wei = db.Column(db.String(50))  # 下注金额 Wei
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 # --- 3. 辅助函数：从链上同步数据 ---
 
@@ -101,7 +118,105 @@ def sync_data_from_chain():
         print(f"Sync Error: {e}")
         return {"error": str(e)}
 
-# --- 4. API 接口 (Routes) ---
+# --- 4. 事件监听器：实时同步 ---
+
+def setup_event_listeners():
+    """设置智能合约事件监听器，实现实时数据同步"""
+    
+    # 监听 NewBet 事件
+    bet_filter = contract.events.NewBet.create_filter(fromBlock='latest')
+    
+    # 监听 GameStatusChanged 事件
+    status_filter = contract.events.GameStatusChanged.create_filter(fromBlock='latest')
+    
+    # 监听 WinnerSelected 事件
+    winner_filter = contract.events.WinnerSelected.create_filter(fromBlock='latest')
+    
+    def handle_new_bet(event):
+        """处理新下注事件"""
+        try:
+            args = event['args']
+            user_address = args['user']
+            team_id = args['teamId']
+            amount_wei = str(args['amount'])
+            
+            print(f"New bet detected: {user_address} bet {amount_wei} wei on team {team_id}")
+            
+            # 记录用户下注到数据库
+            with app.app_context():
+                new_bet = UserBet(
+                    user_address=user_address,
+                    team_id=int(team_id),
+                    amount_wei=amount_wei
+                )
+                db.session.add(new_bet)
+                db.session.commit()
+                
+                # 触发完整同步以更新统计数据
+                sync_data_from_chain()
+                
+        except Exception as e:
+            print(f"Error handling NewBet event: {e}")
+    
+    def handle_status_change(event):
+        """处理游戏状态改变事件"""
+        try:
+            args = event['args']
+            new_status = args['newStatus']
+            
+            print(f"Game status changed to: {new_status}")
+            
+            # 更新游戏状态
+            with app.app_context():
+                sync_data_from_chain()
+                
+        except Exception as e:
+            print(f"Error handling GameStatusChanged event: {e}")
+    
+    def handle_winner_selected(event):
+        """处理获胜者选择事件"""
+        try:
+            args = event['args']
+            winner_team_id = args['teamId']
+            winner_team_name = args['teamName']
+            
+            print(f"Winner selected: Team {winner_team_id} - {winner_team_name}")
+            
+            # 更新获胜者信息
+            with app.app_context():
+                sync_data_from_chain()
+                
+        except Exception as e:
+            print(f"Error handling WinnerSelected event: {e}")
+    
+    # 启动事件监听线程
+    def event_listener():
+        while True:
+            try:
+                # 检查 NewBet 事件
+                for event in bet_filter.get_new_entries():
+                    handle_new_bet(event)
+                
+                # 检查状态改变事件
+                for event in status_filter.get_new_entries():
+                    handle_status_change(event)
+                
+                # 检查获胜者选择事件
+                for event in winner_filter.get_new_entries():
+                    handle_winner_selected(event)
+                
+                time.sleep(2)  # 每2秒检查一次新事件
+                
+            except Exception as e:
+                print(f"Event listener error: {e}")
+                time.sleep(5)  # 出错后等待5秒再试
+    
+    # 启动监听线程
+    listener_thread = threading.Thread(target=event_listener, daemon=True)
+    listener_thread.start()
+    print("Event listeners started")
+
+# --- 5. API 接口 (Routes) ---
 
 @app.route('/api/sync', methods=['POST', 'GET'])
 def trigger_sync():
@@ -111,6 +226,70 @@ def trigger_sync():
     """
     result = sync_data_from_chain()
     return jsonify(result)
+
+@app.route('/api/user_bets/<user_address>', methods=['GET'])
+def get_user_bets(user_address):
+    """获取用户总下注"""
+    bets = UserBet.query.filter_by(user_address=user_address).all()
+    total_bet_wei = sum(int(bet.amount_wei) for bet in bets)
+    return jsonify({
+        "total_bet_wei": str(total_bet_wei),
+        "total_bet_eth": float(web3.from_wei(total_bet_wei, 'ether')),
+        "bets": [
+            {
+                "team_id": bet.team_id,
+                "amount_wei": bet.amount_wei,
+                "amount_eth": float(web3.from_wei(int(bet.amount_wei), 'ether')),
+                "timestamp": bet.timestamp.isoformat()
+            } for bet in bets
+        ]
+    })
+
+@app.route('/api/record_bet', methods=['POST'])
+def record_bet():
+    """记录用户下注"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    user_address = data.get('userAddress')
+    team_id = data.get('teamId')
+    amount_wei = data.get('amount')
+    
+    if not all([user_address, team_id, amount_wei]):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    try:
+        new_bet = UserBet(
+            user_address=user_address,
+            team_id=int(team_id),
+            amount_wei=str(amount_wei)
+        )
+        db.session.add(new_bet)
+        db.session.commit()
+        return jsonify({"message": "Bet recorded successfully", "bet_id": new_bet.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/reset_database', methods=['POST'])
+def reset_database():
+    """清空所有数据库数据（用于更换合约时）"""
+    try:
+        # 清空所有表
+        UserBet.query.delete()
+        Team.query.delete()
+        GameState.query.delete()
+        
+        # 重置GameState为初始状态
+        initial_state = GameState(id=1, status=0, total_prize_pool="0", winning_team_id=0)
+        db.session.add(initial_state)
+        
+        db.session.commit()
+        return jsonify({"message": "Database reset successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
@@ -160,5 +339,8 @@ def auto_sync():
 sync_thread = threading.Thread(target=auto_sync, daemon=True)
 sync_thread.start()
 
+# 启动事件监听器
+setup_event_listeners()
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)

@@ -10,4 +10,5 @@ dependencies = [
     "flask-sqlalchemy>=3.1.1",
     "python-dotenv>=1.2.1",
     "web3>=7.14.0",
+    "requests>=2.31.0",
 ]

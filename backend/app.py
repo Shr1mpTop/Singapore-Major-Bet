@@ -5,11 +5,13 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from web3 import Web3
 from dotenv import load_dotenv
+import threading
+import time
 
 # 1. 初始化配置
 load_dotenv()
 app = Flask(__name__)
-CORS(app) # 允许前端跨域访问
+CORS(app, origins=["http://localhost:3000"]) # 允许前端跨域访问
 
 # 配置 SQLite 数据库
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///betting.db'
@@ -18,7 +20,7 @@ db = SQLAlchemy(app)
 
 # 配置 Web3
 rpc_url = os.getenv("RPC_URL")
-contract_address = os.getenv("CONTRACT_ADDRESS")
+contract_address = Web3.to_checksum_address(os.getenv("CONTRACT_ADDRESS"))
 web3 = Web3(Web3.HTTPProvider(rpc_url))
 
 # 加载 ABI
@@ -146,6 +148,17 @@ def get_teams():
 # 初始化数据库
 with app.app_context():
     db.create_all()
+
+# 自动同步函数
+def auto_sync():
+    while True:
+        with app.app_context():
+            sync_data_from_chain()
+        time.sleep(60)
+
+# 启动后台线程
+sync_thread = threading.Thread(target=auto_sync, daemon=True)
+sync_thread.start()
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -17,7 +17,6 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
       {/* Hero Section */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/cs2-bg.jpg')] bg-cover bg-center opacity-20" />
         <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
           <div className="text-center max-w-4xl">
             <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">

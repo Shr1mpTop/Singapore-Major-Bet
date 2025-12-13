@@ -28,6 +28,8 @@ const CONTRACT_ADDRESS: `0x${string}` = (process.env.NEXT_PUBLIC_CONTRACT_ADDRES
 
 // 单个队伍的下注卡片组件
 function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; total_bet_wei: string; supporters: number }; totalPool: number }) {
+  console.log('TeamBetCard rendering for team:', team.id, team.name);
+  
   const [betAmount, setBetAmount] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   
@@ -180,6 +182,15 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
       <CardContent>
         <p className="text-sm text-red-200">总下注: {(parseFloat(team.total_bet_wei) / 10**18).toFixed(6)} ETH</p>
         <p className="text-sm text-red-200">支持者: {team.supporters}</p>
+        
+        {/* 测试按钮 */}
+        <Button 
+          className="w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white"
+          onClick={() => alert('测试按钮被点击了！')}
+        >
+          测试按钮
+        </Button>
+        
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button className="w-full mt-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white glow-hover">

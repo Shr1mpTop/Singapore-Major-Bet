@@ -16,9 +16,24 @@ app = Flask(__name__)
 
 # CORS 配置 - 生产环境允许所有域名，开发环境只允许localhost
 if os.getenv('FLASK_ENV') == 'production':
-    CORS(app)  # 生产环境允许所有域名
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+            "expose_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": False
+        }
+    })
 else:
-    CORS(app, origins=["http://localhost:3000"])  # 开发环境只允许localhost
+    CORS(app, origins=["http://localhost:3000"], resources={
+        r"/api/*": {
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+            "expose_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": False
+        }
+    })
 
 # 配置 SQLite 数据库
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'betting.db')

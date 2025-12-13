@@ -13,7 +13,12 @@ from datetime import datetime
 # 1. 初始化配置
 load_dotenv()
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"]) # 允许前端跨域访问
+
+# CORS 配置 - 生产环境允许所有域名，开发环境只允许localhost
+if os.getenv('FLASK_ENV') == 'production':
+    CORS(app)  # 生产环境允许所有域名
+else:
+    CORS(app, origins=["http://localhost:3000"])  # 开发环境只允许localhost
 
 # 配置 SQLite 数据库
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'betting.db')
@@ -498,4 +503,9 @@ with app.app_context():
 setup_event_listeners()
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    # 生产环境使用gunicorn，开发环境使用flask内置服务器
+    if os.getenv('FLASK_ENV') == 'production':
+        from gunicorn.app.wsgiapp import WSGIApplication
+        WSGIApplication("%(prog)s [OPTIONS] [APP_MODULE]").run()
+    else:
+        app.run(debug=True, port=int(os.getenv('PORT', 5001)))

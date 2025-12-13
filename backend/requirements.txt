@@ -1,0 +1,7 @@
+Flask==3.1.2
+Flask-CORS==6.0.1
+Flask-SQLAlchemy==3.1.1
+python-dotenv==1.2.1
+web3==7.14.0
+requests==2.31.0
+gunicorn==21.2.0

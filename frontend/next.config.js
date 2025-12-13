@@ -1,9 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Force webpack instead of turbopack for compatibility
+  // Explicitly disable Turbopack and use webpack
   experimental: {
     webpackBuildWorker: true,
   },
+
+  // Empty turbopack config to silence the warning
+  turbopack: {},
 
   webpack: (config, { isServer }) => {
     // Exclude test files from certain packages that incorrectly include them

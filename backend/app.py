@@ -35,9 +35,16 @@ else:
         }
     })
 
-# 配置 SQLite 数据库
-db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'betting.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+# 配置数据库 - 支持SQLite（开发）和PostgreSQL（生产）
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    # 生产环境使用PostgreSQL
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # 开发环境使用SQLite
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'betting.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 

@@ -349,8 +349,9 @@ def process_transactions(transactions, processed_tx_hashes):
                             raise db_error
                 
                 # 触发完整同步以更新统计数据
-                sync_result = sync_data_from_chain()
-                print(f"Sync result: {sync_result}")
+                with app.app_context():
+                    sync_result = sync_data_from_chain()
+                    print(f"Sync result: {sync_result}")
                     
         except Exception as e:
             print(f"Error processing transaction {tx.get('hash', 'unknown')}: {e}")

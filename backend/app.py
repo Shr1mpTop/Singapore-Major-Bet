@@ -16,7 +16,8 @@ app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"]) # 允许前端跨域访问
 
 # 配置 SQLite 数据库
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///betting.db'
+db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'betting.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -68,67 +69,101 @@ class Team(db.Model):
     supporter_count = db.Column(db.Integer, default=0)
 
 class UserBet(db.Model):
-    """记录每个用户的下注"""
+    """记录每个用户的下注 - 包含所有Etherscan API字段"""
     id = db.Column(db.Integer, primary_key=True)
-    user_address = db.Column(db.String(42))  # ETH 地址
-    team_id = db.Column(db.Integer)
-    amount_wei = db.Column(db.String(50))  # 下注金额 Wei
+    
+    # 核心投注信息
+    user_address = db.Column(db.String(42))  # from字段
+    team_id = db.Column(db.Integer)  # 从input解析
+    team_name = db.Column(db.String(100))  # 战队名称
+    amount_wei = db.Column(db.String(50))  # value字段
+    
+    # Etherscan API返回的所有字段
+    blockNumber = db.Column(db.String(20))  # 区块号
+    blockHash = db.Column(db.String(66))  # 区块哈希
+    timeStamp_str = db.Column(db.String(20))  # 时间戳（字符串）
+    hash = db.Column(db.String(66))  # 交易哈希
+    nonce = db.Column(db.String(20))  # nonce
+    transactionIndex = db.Column(db.String(10))  # 交易索引
+    to = db.Column(db.String(42))  # 目标地址
+    value = db.Column(db.String(50))  # 交易金额
+    gas = db.Column(db.String(20))  # gas限制
+    gasPrice = db.Column(db.String(20))  # gas价格
+    input = db.Column(db.Text)  # 输入数据
+    methodId = db.Column(db.String(10))  # 方法ID
+    functionName = db.Column(db.String(100))  # 函数名
+    contractAddress = db.Column(db.String(42))  # 合约地址
+    cumulativeGasUsed = db.Column(db.String(20))  # 累计gas使用
+    txreceipt_status = db.Column(db.String(5))  # 交易状态
+    gasUsed = db.Column(db.String(20))  # 实际gas使用
+    confirmations = db.Column(db.String(10))  # 确认数
+    isError = db.Column(db.String(5))  # 是否错误
+    
+    # 解析后的时间戳（用于排序）
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 唯一约束：使用hash+timeStamp组合确保不重复
+    __table_args__ = (db.UniqueConstraint('hash', 'timeStamp_str', name='unique_hash_timestamp'),)
 
 # --- 3. 辅助函数：从链上同步数据 ---
 
-def sync_data_from_chain():
-    """
-    核心逻辑：调用智能合约的 view 函数，更新本地 SQLite。
-    在生产环境中，这通常由 Celery 定时任务或后台线程触发。
-    """
-    if not web3.is_connected():
-        return {"error": "Blockchain connection failed"}
-
+def update_team_stats():
+    """更新团队统计数据和总奖池"""
     try:
-        # 1. 获取全局状态
-        current_status = contract.functions.status().call()
-        pool_wei = contract.functions.totalPrizePool().call()
+        # 获取数据库中的统计数据
+        from sqlalchemy import func
+        team_stats = db.session.query(
+            UserBet.team_id,
+            func.count(func.distinct(UserBet.user_address)).label('unique_supporters'),
+            func.sum(UserBet.amount_wei).label('total_amount_wei')
+        ).group_by(UserBet.team_id).all()
         
-        # 获取冠军ID (只有在 Finished 状态下才有意义，为了防止报错需try-catch或判断状态)
-        winner_id = 0
-        if current_status == 2: # Finished
-            winner_id = contract.functions.winningTeamId().call()
-
-        # 更新 State 表
-        state_record = GameState.query.first()
-        if not state_record:
-            state_record = GameState(id=1)
-            db.session.add(state_record)
+        # 计算总奖池（所有投注的总和）
+        total_prize_pool = db.session.query(func.sum(UserBet.amount_wei)).scalar() or "0"
         
-        state_record.status = current_status
-        state_record.total_prize_pool = str(pool_wei)
-        state_record.winning_team_id = winner_id
-
-        # 2. 获取战队列表
-        # 合约返回: tuple(id, name, totalBetAmount, supporterCount)[]
-        teams_data = contract.functions.getTeams().call()
-
-        # 更新 Teams 表
-        # 简单粗暴策略：清空旧数据，写入新数据 (适合数据量小的情况)
-        # 生产环境建议用 update logic
-        Team.query.delete() 
+        # 更新GameState表中的总奖池
+        game_state = GameState.query.first()
+        if game_state:
+            game_state.total_prize_pool = str(total_prize_pool)
         
-        for t in teams_data:
-            # t 结构: (id, name, totalBetAmount, supporterCount)
-            new_team = Team(
-                id=t[0],
-                name=t[1],
-                total_bet_amount=str(t[2]), # 转字符串存 Wei
-                supporter_count=t[3]
-            )
-            db.session.add(new_team)
-
+        # 创建team_id到统计数据的映射
+        team_stats_dict = {stat.team_id: stat for stat in team_stats}
+        
+        # 更新现有团队的统计数据
+        teams = Team.query.all()
+        for team in teams:
+            if team.id in team_stats_dict:
+                stat = team_stats_dict[team.id]
+                team.supporter_count = stat.unique_supporters
+                team.total_bet_amount = str(stat.total_amount_wei or "0")
+            else:
+                team.supporter_count = 0
+                team.total_bet_amount = "0"
+        
         db.session.commit()
-        return {"message": "Synced successfully", "status": current_status}
-
+        print(f"✅ Updated stats for {len(teams)} teams, total prize pool: {total_prize_pool} wei")
+        return {"message": "Team stats and prize pool updated successfully"}
+        
     except Exception as e:
-        print(f"Sync Error: {e}")
+        print(f"❌ Error updating team stats: {e}")
+        db.session.rollback()
+        return {"error": str(e)}
+def sync_data_from_chain():
+    """同步数据并更新统计"""
+    try:
+        # 更新团队统计数据
+        update_team_stats()
+        
+        # 更新游戏状态（如果需要）
+        state = GameState.query.first()
+        if not state:
+            state = GameState(id=1, status=0, total_prize_pool="0", winning_team_id=None)
+            db.session.add(state)
+            db.session.commit()
+        
+        return {"message": "Synced successfully"}
+    except Exception as e:
+        print(f"Sync error: {e}")
         return {"error": str(e)}
 
 # --- 4. 事件监听器：实时同步 ---
@@ -178,8 +213,6 @@ def setup_event_listeners():
             # 用于去重的已处理交易哈希集合
             processed_tx_hashes = set()
             
-            print(f"Starting Etherscan event listener from block {last_checked_block}")
-            
             while True:
                 try:
                     current_block = web3.eth.block_number
@@ -188,8 +221,6 @@ def setup_event_listeners():
                         # 使用Etherscan API获取合约交易记录
                         from_block_int = last_checked_block + 1
                         to_block_int = current_block
-                        
-                        print(f"🔍 Querying all transactions for contract {contract_address_str}")
                         
                         # 获取合约地址的交易记录
                         transactions = get_contract_transactions_from_etherscan()
@@ -200,9 +231,9 @@ def setup_event_listeners():
                         last_checked_block = current_block
                         
                         if new_events_count > 0:
-                            print(f"✅ Processed {new_events_count} new events up to block {current_block}")
+                            print(f"✅ Processed {new_events_count} new events")
                         else:
-                            print(f"📋 No new events found up to block {current_block}")
+                            print(f"📋 No new events found")
                         
                         # 限制已处理哈希集合的大小，避免内存泄漏
                         if len(processed_tx_hashes) > 10000:
@@ -287,7 +318,7 @@ def parse_bet_transaction(tx_data):
         return None
 
 def process_transactions(transactions, processed_tx_hashes):
-    """处理Etherscan API返回的交易列表，解析并存储bet交易
+    """处理Etherscan API返回的交易列表，记录所有字段到数据库
     
     Args:
         transactions: Etherscan API返回的交易列表
@@ -298,10 +329,22 @@ def process_transactions(transactions, processed_tx_hashes):
     """
     new_bets_count = 0
     
+    # 获取当前战队信息，用于team_id到team_name的映射
+    try:
+        teams_data = contract.functions.getTeams().call()
+        team_id_to_name = {team[0]: team[1] for team in teams_data}
+    except Exception as e:
+        print(f"Error getting teams data: {e}")
+        team_id_to_name = {}
+    
     for tx in transactions:
         try:
             tx_hash = tx.get('hash', '')
-            if tx_hash in processed_tx_hashes:
+            time_stamp = tx.get('timeStamp', '')
+            
+            # 使用hash+timeStamp组合进行去重
+            dedup_key = f"{tx_hash}_{time_stamp}"
+            if dedup_key in processed_tx_hashes:
                 continue  # 跳过已处理的交易
             
             # 检查是否是成功的bet交易
@@ -309,40 +352,69 @@ def process_transactions(transactions, processed_tx_hashes):
             tx_status = tx.get('txreceipt_status', '0')  # 1=成功, 0=失败
             
             if method_id == TARGET_METHOD_ID and tx_status == '1':
-                # 解析交易输入数据
+                # 解析交易输入数据获取team_id
                 input_data = tx.get('input', '')
+                team_id = 0
                 if len(input_data) >= 74:  # 0x + 8字节methodId + 32字节teamId
-                    # 提取teamId: input[10:74] (跳过0x和methodId)
                     team_id_hex = input_data[10:74]
                     team_id = int(team_id_hex, 16)
+                
+                # 解析时间戳用于datetime字段
+                time_stamp_int = int(time_stamp) if time_stamp else 0
+                tx_timestamp = datetime.utcfromtimestamp(time_stamp_int) if time_stamp_int > 0 else datetime.utcnow()
+                
+                print(f"🎯 New bet detected: {tx.get('from', '')} bet {web3.from_wei(int(tx.get('value', '0')), 'ether')} ETH on team {team_id}")
+                
+                # 记录所有API字段到数据库（数据库唯一约束会自动去重）
+                with app.app_context():
+                    new_bet = UserBet(
+                        # 核心投注信息
+                        user_address=tx.get('from', ''),
+                        team_id=team_id,
+                        team_name=team_id_to_name.get(team_id, f'Team {team_id}'),
+                        amount_wei=tx.get('value', '0'),
+                        
+                        # 所有API字段
+                        blockNumber=tx.get('blockNumber', ''),
+                        blockHash=tx.get('blockHash', ''),
+                        timeStamp_str=time_stamp,
+                        hash=tx_hash,
+                        nonce=tx.get('nonce', ''),
+                        transactionIndex=tx.get('transactionIndex', ''),
+                        to=tx.get('to', ''),
+                        value=tx.get('value', '0'),
+                        gas=tx.get('gas', ''),
+                        gasPrice=tx.get('gasPrice', ''),
+                        input=input_data,
+                        methodId=method_id,
+                        functionName=tx.get('functionName', ''),
+                        contractAddress=tx.get('contractAddress', ''),
+                        cumulativeGasUsed=tx.get('cumulativeGasUsed', ''),
+                        txreceipt_status=tx_status,
+                        gasUsed=tx.get('gasUsed', ''),
+                        confirmations=tx.get('confirmations', ''),
+                        isError=tx.get('isError', ''),
+                        
+                        # 解析后的时间戳
+                        timestamp=tx_timestamp
+                    )
                     
-                    # 获取下注金额 (value字段，单位为Wei)
-                    amount_wei = tx.get('value', '0')
-                    
-                    # 获取用户地址
-                    user_address = tx.get('from', '')
-                    
-                    # 获取区块号用于时间戳
-                    block_number = int(tx.get('blockNumber', '0'))
-                    
-                    print(f"🎯 New bet detected: {user_address} bet {web3.from_wei(int(amount_wei), 'ether')} ETH on team {team_id}")
-                    
-                    # 记录用户下注到数据库
-                    with app.app_context():
-                        new_bet = UserBet(
-                            user_address=user_address,
-                            team_id=team_id,
-                            amount_wei=amount_wei
-                        )
+                    try:
                         db.session.add(new_bet)
                         db.session.commit()
-                        
-                        # 触发完整同步以更新统计数据
-                        sync_result = sync_data_from_chain()
-                        print(f"Sync result: {sync_result}")
-                    
-                    processed_tx_hashes.add(tx_hash)
-                    new_bets_count += 1
+                        new_bets_count += 1
+                        processed_tx_hashes.add(dedup_key)
+                    except Exception as db_error:
+                        # 如果是唯一约束冲突，说明已存在，跳过
+                        if 'UNIQUE constraint failed' in str(db_error):
+                            processed_tx_hashes.add(dedup_key)
+                            continue
+                        else:
+                            raise db_error
+                
+                # 触发完整同步以更新统计数据
+                sync_result = sync_data_from_chain()
+                print(f"Sync result: {sync_result}")
                     
         except Exception as e:
             print(f"Error processing transaction {tx.get('hash', 'unknown')}: {e}")
@@ -469,7 +541,12 @@ def get_status():
     """获取当前游戏状态和奖池"""
     state = GameState.query.first()
     if not state:
-        return jsonify({"status": 0, "total_prize_pool": "0", "winning_team_id": 0})
+        return jsonify({
+            "status": 0,
+            "status_text": "Open",
+            "total_prize_pool_wei": "0",
+            "winning_team_id": 0
+        })
     
     return jsonify({
         "status": state.status, # 0: Open, 1: Stopped...
@@ -478,6 +555,40 @@ def get_status():
         # 方便前端展示，后端也可以简单换算一下 ETH，但建议前端处理精度
         "total_prize_pool_eth": float(web3.from_wei(int(state.total_prize_pool), 'ether')),
         "winning_team_id": state.winning_team_id
+    })
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    """获取全局统计数据"""
+    from sqlalchemy import func
+    
+    # 计算总唯一参与者数量
+    total_unique_participants = db.session.query(func.count(func.distinct(UserBet.user_address))).scalar()
+    
+    # 计算总投注数量
+    total_bets = UserBet.query.count()
+    
+    # 计算总奖金池（从GameState获取）
+    game_state = GameState.query.first()
+    total_prize_pool_wei = game_state.total_prize_pool if game_state else "0"
+    
+    # 获取团队统计
+    teams = Team.query.order_by(Team.id).all()
+    team_stats = []
+    for t in teams:
+        team_stats.append({
+            "team_id": t.id,
+            "team_name": t.name,
+            "total_bets": t.supporter_count,  # 这个是该团队的投注次数，不是唯一用户数
+            "total_amount_eth": float(web3.from_wei(int(t.total_bet_amount), 'ether'))
+        })
+    
+    return jsonify({
+        "total_unique_participants": total_unique_participants,
+        "total_bets": total_bets,
+        "total_prize_pool_wei": total_prize_pool_wei,
+        "total_prize_pool_eth": float(web3.from_wei(int(total_prize_pool_wei), 'ether')),
+        "team_stats": team_stats
     })
 
 @app.route('/api/teams', methods=['GET'])
@@ -500,6 +611,9 @@ def get_teams():
 # 初始化数据库
 with app.app_context():
     db.create_all()
+    
+    # 初始化团队统计数据
+    update_team_stats()
 
 # 启动事件监听器
 setup_event_listeners()

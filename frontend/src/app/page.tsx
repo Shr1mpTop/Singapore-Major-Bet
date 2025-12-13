@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useStatus, useTeams } from "@/hooks/useBackendData";
+import { useStatus, useTeams, useStats } from "@/hooks/useBackendData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,9 +9,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Home() {
   const { data: status, isLoading: statusLoading } = useStatus();
   const { data: teams, isLoading: teamsLoading } = useTeams();
+  const { data: stats, isLoading: statsLoading } = useStats();
 
-  const totalParticipants = teams?.reduce((sum, team) => sum + team.supporters, 0) || 0;
-  const totalPrizePoolEth = status ? parseFloat(status.total_prize_pool_wei) / 10**18 : 0;
+  const totalParticipants = stats?.total_unique_participants || 0;
+  const totalPrizePoolEth = status?.total_prize_pool_wei ? parseFloat(status.total_prize_pool_wei) / 10**18 : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">

@@ -17,6 +17,30 @@ export interface TeamData {
   supporters: number;
 }
 
+export interface StatsData {
+  total_unique_participants: number;
+  total_bets: number;
+  total_prize_pool_wei: string;
+  total_prize_pool_eth: number;
+  team_stats: Array<{
+    team_id: number;
+    team_name: string;
+    total_bets: number;
+    total_amount_eth: number;
+  }>;
+}
+
+export function useStats() {
+  return useQuery<StatsData>({
+    queryKey: ['stats'],
+    queryFn: async () => {
+      const response = await axios.get(`${API_BASE_URL}/stats`);
+      return response.data;
+    },
+    refetchInterval: 5000,
+  });
+}
+
 export function useStatus() {
   return useQuery<StatusData>({
     queryKey: ['status'],

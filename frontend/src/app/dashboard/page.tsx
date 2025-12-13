@@ -96,7 +96,7 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
     return (userAmount / teamPool) * finalPool;
   };
 
-  const handleBet = () => {
+  const handleBet = async () => {
     alert('handleBet 被调用了！'); // 添加alert确保函数被调用
     console.log('handleBet called');
 

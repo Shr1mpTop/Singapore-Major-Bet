@@ -30,14 +30,37 @@ const BET_ABI = [
 const CONTRACT_ADDRESS: `0x${string}` = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb5c4bea741cea63b2151d719b2cca12e80e6c7e8') as `0x${string}`;
 
 function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
+  const [windowSize, setWindowSize] = useState({ width: 1920, height: 1080 });
+  const [particles, setParticles] = useState<Array<{x: number, y: number, delay: number, duration: number}>>([]);
+
+  useEffect(() => {
+    // Only run on client side
+    setWindowSize({
+      width: window.innerWidth,
+      height: window.innerHeight
+    });
+
+    // Generate particles data only once on client side
+    const particleData = [...Array(20)].map(() => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      delay: Math.random() * 3,
+      duration: 3 + Math.random() * 2
+    }));
+    setParticles(particleData);
+  }, []);
+
   return (
     <motion.section
-      className="min-h-screen flex items-center justify-center px-4 relative"
+      className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1 }}
     >
-      <div className="text-center max-w-4xl">
+      {/* Hero section specific overlay for depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-red-900/10"></div>
+
+      <div className="text-center max-w-4xl relative z-10">
         <motion.h1
           className="text-6xl md:text-8xl lg:text-9xl font-black tracking-wider leading-tight mb-6 relative overflow-hidden"
           initial={{ opacity: 0, y: -100, rotateX: -90 }}
@@ -99,13 +122,50 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
-            <Button
-            size="lg"
-            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-8 py-4 text-lg glow-hover border border-red-400/50"
-            onClick={onScrollToBetting}
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", damping: 10, stiffness: 400 }}
           >
-            Start Betting
-          </Button>
+            <Button
+              size="lg"
+              className="relative bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-10 py-5 text-lg glow-hover border border-red-400/50 rounded-xl overflow-hidden group shadow-2xl shadow-red-500/25"
+              onClick={onScrollToBetting}
+            >
+              {/* Animated background gradient */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-yellow-400/20 to-yellow-400/0"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: "100%" }}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+              />
+
+              {/* Shimmer effect */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                initial={{ x: "-150%" }}
+                animate={{
+                  x: ["150%", "-150%"],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 2
+                }}
+              />
+
+              <span className="relative z-10 flex items-center space-x-2">
+                <span>Start Betting</span>
+                <motion.span
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  →
+                </motion.span>
+              </span>
+            </Button>
+          </motion.div>
         </motion.div>
       </div>
     </motion.section>
@@ -132,9 +192,8 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
       transition={{ duration: 0.8 }}
       viewport={{ once: true }}
     >
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-transparent"></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500/10 rounded-full blur-3xl"></div>
+      {/* Stats section overlay - very subtle for natural flow */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/3 to-transparent"></div>
 
       <div className="max-w-7xl mx-auto relative">
         {/* Hero Title */}
@@ -173,8 +232,14 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
             transition={{ duration: 0.8, delay: 0.3 }}
             viewport={{ once: true }}
           >
-            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-500 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/30 h-full border border-red-500/20 group-hover:border-red-400/40 backdrop-blur-xl">
+              {/* Enhanced neumorphism shadow */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-red-500/10 via-transparent to-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.1)] opacity-50 group-hover:opacity-75 transition-opacity duration-500"></div>
+
+              {/* Animated border glow */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-red-500/0 via-red-400/20 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+
               <div className="relative z-10 flex flex-col justify-center h-full">
                 <motion.div
                   className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
@@ -187,7 +252,7 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                 </motion.div>
                 <div className="space-y-3">
                   {statusLoading ? (
-                    <Skeleton className="h-10 w-28 bg-red-900/50 mx-auto" />
+                    <Skeleton className="h-10 w-28 bg-red-900/50 mx-auto rounded-lg" />
                   ) : (
                     <>
                       <motion.div
@@ -197,7 +262,7 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                         transition={{ duration: 0.6, delay: 0.7 }}
                         viewport={{ once: true }}
                       >
-                        <p className="text-3xl lg:text-4xl font-black text-red-100 mb-1">
+                        <p className="text-3xl lg:text-4xl font-black text-red-100 mb-1 drop-shadow-lg">
                           <SlotMachineNumber value={totalPrizePoolEth} duration={5} />
                           <span className="text-xl lg:text-2xl ml-1 text-red-300">ETH</span>
                         </p>
@@ -210,9 +275,9 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                         viewport={{ once: true }}
                       >
                         {ethPriceLoading ? (
-                          <Skeleton className="h-6 w-20 bg-red-900/50 mx-auto" />
+                          <Skeleton className="h-6 w-20 bg-red-900/50 mx-auto rounded-lg" />
                         ) : (
-                          <p className="text-xl lg:text-2xl font-bold text-yellow-300">
+                          <p className="text-xl lg:text-2xl font-bold text-yellow-300 drop-shadow-md">
                             $<SlotMachineNumber value={totalPrizePoolUsd} duration={5} decimals={2} />
                           </p>
                         )}
@@ -232,8 +297,11 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
             transition={{ duration: 0.8, delay: 0.4 }}
             viewport={{ once: true }}
           >
-            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-500 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/30 h-full border border-red-500/20 group-hover:border-red-400/40 backdrop-blur-xl">
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-red-500/10 via-transparent to-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.1)] opacity-50 group-hover:opacity-75 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-red-500/0 via-red-400/20 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+
               <div className="relative z-10 flex flex-col justify-center h-full">
                 <motion.div
                   className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
@@ -246,10 +314,10 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                 </motion.div>
                 <div>
                   {statsLoading ? (
-                    <Skeleton className="h-10 w-20 bg-red-900/50 mx-auto" />
+                    <Skeleton className="h-10 w-20 bg-red-900/50 mx-auto rounded-lg" />
                   ) : (
                     <motion.p
-                      className="text-3xl lg:text-4xl font-black text-red-100"
+                      className="text-3xl lg:text-4xl font-black text-red-100 drop-shadow-lg"
                       initial={{ opacity: 0, scale: 0.8 }}
                       whileInView={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.6, delay: 0.8 }}
@@ -271,8 +339,11 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
             transition={{ duration: 0.8, delay: 0.5 }}
             viewport={{ once: true }}
           >
-            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-500 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/30 h-full border border-red-500/20 group-hover:border-red-400/40 backdrop-blur-xl">
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-red-500/10 via-transparent to-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.1)] opacity-50 group-hover:opacity-75 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-red-500/0 via-red-400/20 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+
               <div className="relative z-10 flex flex-col justify-center h-full">
                 <motion.div
                   className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
@@ -283,19 +354,53 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                 >
                   Game Status
                 </motion.div>
-                <div>
+                <div className="flex flex-col items-center space-y-3">
                   {statusLoading ? (
-                    <Skeleton className="h-10 w-24 bg-red-900/50 mx-auto" />
+                    <Skeleton className="h-10 w-24 bg-red-900/50 mx-auto rounded-lg" />
                   ) : (
-                    <motion.p
-                      className="text-2xl lg:text-3xl font-black text-red-100 uppercase tracking-wide"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.6, delay: 0.9 }}
-                      viewport={{ once: true }}
-                    >
-                      {status?.status_text}
-                    </motion.p>
+                    <>
+                      <motion.p
+                        className="text-2xl lg:text-3xl font-black text-red-100 uppercase tracking-wide drop-shadow-lg"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.6, delay: 0.9 }}
+                        viewport={{ once: true }}
+                      >
+                        {status?.status_text}
+                      </motion.p>
+                      {/* Status indicator */}
+                      <motion.div
+                        className="flex items-center space-x-2"
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        transition={{ duration: 0.6, delay: 1.1 }}
+                        viewport={{ once: true }}
+                      >
+                        <motion.div
+                          className={`w-3 h-3 rounded-full ${
+                            status?.status_text?.toLowerCase() === 'open'
+                              ? 'bg-green-400 shadow-lg shadow-green-400/50'
+                              : 'bg-yellow-400 shadow-lg shadow-yellow-400/50'
+                          }`}
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [1, 0.7, 1]
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        />
+                        <span className={`text-sm font-medium ${
+                          status?.status_text?.toLowerCase() === 'open'
+                            ? 'text-green-300'
+                            : 'text-yellow-300'
+                        }`}>
+                          {status?.status_text?.toLowerCase() === 'open' ? 'Active' : 'Pending'}
+                        </span>
+                      </motion.div>
+                    </>
                   )}
                 </div>
               </div>
@@ -310,8 +415,11 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
             transition={{ duration: 0.8, delay: 0.6 }}
             viewport={{ once: true }}
           >
-            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-500 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/30 h-full border border-red-500/20 group-hover:border-red-400/40 backdrop-blur-xl">
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-red-500/10 via-transparent to-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.1)] opacity-50 group-hover:opacity-75 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-red-500/0 via-red-400/20 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+
               <div className="relative z-10 flex flex-col justify-center h-full">
                 <motion.div
                   className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
@@ -324,7 +432,7 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                 </motion.div>
                 <div className="space-y-2">
                   {ethPriceLoading ? (
-                    <Skeleton className="h-10 w-28 bg-red-900/50 mx-auto" />
+                    <Skeleton className="h-10 w-28 bg-red-900/50 mx-auto rounded-lg" />
                   ) : (
                     <motion.div
                       className="text-center"
@@ -333,7 +441,7 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                       transition={{ duration: 0.6, delay: 1.0 }}
                       viewport={{ once: true }}
                     >
-                      <p className="text-3xl lg:text-4xl font-black text-yellow-300">
+                      <p className="text-3xl lg:text-4xl font-black text-yellow-300 drop-shadow-lg">
                         $<AnimatedNumber value={ethPriceValue} duration={1} />
                       </p>
                     </motion.div>
@@ -345,7 +453,9 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                     transition={{ duration: 0.6, delay: 1.2 }}
                     viewport={{ once: true }}
                   >
-                    <div className="text-xs lg:text-sm text-red-400 font-medium">Data Source: Binance</div>
+                    <div className="text-xs lg:text-sm text-red-400 font-medium bg-red-900/20 px-3 py-1 rounded-full inline-block">
+                      📊 Data Source: Binance
+                    </div>
                   </motion.div>
                 </div>
               </div>
@@ -484,7 +594,10 @@ function BettingSection({ teams, status, teamsLoading }: {
       transition={{ duration: 1 }}
       viewport={{ once: true }}
     >
-      <div className="max-w-6xl mx-auto">
+      {/* Betting section overlay - very subtle for natural flow */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-yellow-900/3 to-transparent"></div>
+
+      <div className="max-w-6xl mx-auto relative">
         <motion.h2
           className="text-3xl font-bold text-center mb-12 text-glow"
           initial={{ opacity: 0, y: -30 }}
@@ -649,6 +762,70 @@ export default function Home() {
 
       {/* 背景装饰效果 */}
       <div className="fixed inset-0 bg-black-glass" />
+
+      {/* 全局背景层 - 贯穿整个页面 */}
+      <div className="fixed inset-0 z-0">
+        {/* 渐变背景 - 从上到下，从暗到亮 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-red-900/40 to-transparent"></div>
+
+        {/* 动态光球效果 */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/8 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-yellow-500/6 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-red-500/3 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-red-500/5 to-transparent rounded-full blur-3xl"></div>
+
+        {/* 几何形状装饰 */}
+        <motion.div
+          className="absolute top-20 left-10 w-32 h-32 border border-red-500/20 rounded-full"
+          animate={{
+            rotate: 360,
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            rotate: { duration: 20, repeat: Infinity, ease: "linear" },
+            scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+          }}
+        />
+        <motion.div
+          className="absolute bottom-20 right-10 w-24 h-24 border border-yellow-500/20 rounded-lg rotate-45"
+          animate={{
+            rotate: [45, 135, 45],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            rotate: { duration: 15, repeat: Infinity, ease: "easeInOut" },
+            scale: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }
+          }}
+        />
+
+        {/* 浮动光点 */}
+        <motion.div
+          className="absolute top-1/3 right-1/4 w-4 h-4 bg-red-400/30 rounded-full blur-sm"
+          animate={{
+            y: [0, -20, 0],
+            opacity: [0.3, 0.8, 0.3],
+          }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.5
+          }}
+        />
+        <motion.div
+          className="absolute bottom-1/3 left-1/4 w-6 h-6 bg-yellow-400/20 rounded-full blur-sm"
+          animate={{
+            y: [0, 20, 0],
+            opacity: [0.2, 0.6, 0.2],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1.5
+          }}
+        />
+      </div>
 
       {/* 固定右上角钱包连接 */}
       <motion.div

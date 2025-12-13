@@ -56,3 +56,19 @@ export function useTeams() {
     refetchInterval: 5000,
   });
 }
+
+export interface EthPriceData {
+  symbol: string;
+  price: string;
+}
+
+export function useEthPrice() {
+  return useQuery<EthPriceData>({
+    queryKey: ['ethPrice'],
+    queryFn: async () => {
+      const response = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
+      return response.data;
+    },
+    refetchInterval: 10000, // Refresh every 10 seconds for price data
+  });
+}

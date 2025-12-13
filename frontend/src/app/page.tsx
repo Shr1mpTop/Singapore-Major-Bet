@@ -1,6 +1,6 @@
 'use client';
 
-import { useStatus, useTeams, useStats } from "@/hooks/useBackendData";
+import { useStatus, useTeams, useStats, useEthPrice } from "@/hooks/useBackendData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,8 +13,9 @@ import { Input } from '@/components/ui/input';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
+import { AnimatedNumber, SlotMachineNumber } from "@/components/AnimatedNumber";
 
-// 合约ABI - bet函数
+// Contract ABI - bet function
 const BET_ABI = [
   {
     inputs: [{ internalType: "uint256", name: "_teamId", type: "uint256" }],
@@ -25,7 +26,7 @@ const BET_ABI = [
   }
 ] as const;
 
-// 合约地址
+// Contract address
 const CONTRACT_ADDRESS: `0x${string}` = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb5c4bea741cea63b2151d719b2cca12e80e6c7e8') as `0x${string}`;
 
 function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
@@ -36,14 +37,54 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
       animate={{ opacity: 1 }}
       transition={{ duration: 1 }}
     >
-      <div className="text-center max-w-4xl glass-red rounded-2xl p-8 glow">
+      <div className="text-center max-w-4xl">
         <motion.h1
-          className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-red-400 via-red-300 to-yellow-400 bg-clip-text text-transparent text-glow"
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          className="text-6xl md:text-8xl lg:text-9xl font-black tracking-wider leading-tight mb-6 relative overflow-hidden"
+          initial={{ opacity: 0, y: -100, rotateX: -90 }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            rotateX: 0
+          }}
+          transition={{
+            type: "spring",
+            damping: 12,
+            stiffness: 100,
+            duration: 1.2,
+            delay: 0.3
+          }}
         >
-          CS2 Singapore Major 2026
+          <motion.span
+            className="inline-block bg-gradient-to-r from-red-400 via-red-300 to-yellow-400 bg-clip-text text-transparent text-glow"
+            animate={{
+              backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            style={{
+              backgroundSize: "200% 200%",
+            }}
+          >
+            CS2 Singapore Major 2026
+          </motion.span>
+          {/* Knife edge flash animation */}
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent"
+            initial={{ x: "-100%" }}
+            animate={{ x: "100%" }}
+            transition={{
+              duration: 0.8,
+              delay: 1.5,
+              ease: "easeInOut"
+            }}
+            style={{
+              mixBlendMode: "overlay",
+              opacity: 0.8
+            }}
+          />
         </motion.h1>
         <motion.p
           className="text-xl md:text-2xl mb-8 text-red-100"
@@ -51,19 +92,19 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
         >
-          冠军预测大赛 - 预测冠军，赢取奖金
+          Champion Prediction Contest - Predict the winner, win prizes
         </motion.p>
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
-          <Button
+            <Button
             size="lg"
             className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-8 py-4 text-lg glow-hover border border-red-400/50"
             onClick={onScrollToBetting}
           >
-            开始投注 (Start Betting)
+            Start Betting
           </Button>
         </motion.div>
       </div>
@@ -79,80 +120,236 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
 }) {
   const totalParticipants = stats?.total_unique_participants || 0;
   const totalPrizePoolEth = status?.total_prize_pool_wei ? parseFloat(status.total_prize_pool_wei) / 10**18 : 0;
+  const { data: ethPrice, isLoading: ethPriceLoading } = useEthPrice();
+  const ethPriceValue = ethPrice ? parseFloat(ethPrice.price) : 0;
+  const totalPrizePoolUsd = totalPrizePoolEth * ethPriceValue;
 
   return (
     <motion.section
-      className="py-16 px-4 relative z-10"
+      className="py-24 px-4 relative z-10 overflow-hidden"
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
       viewport={{ once: true }}
     >
-      <div className="max-w-6xl mx-auto">
-        <motion.h2
-          className="text-3xl font-bold text-center mb-12 text-glow"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          实时数据
-        </motion.h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <Card className="glass-red glow-hover border-red-400/30">
-              <CardHeader>
-                <CardTitle className="text-red-300">总奖池</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statusLoading ? (
-                  <Skeleton className="h-8 w-24 bg-red-900/50" />
-                ) : (
-                  <p className="text-2xl font-bold text-red-100">{totalPrizePoolEth.toFixed(4)} ETH</p>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+      {/* Background Effects */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-transparent"></div>
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500/10 rounded-full blur-3xl"></div>
 
+      <div className="max-w-7xl mx-auto relative">
+        {/* Hero Title */}
+        <motion.div
+          className="text-center mb-20"
+          initial={{ opacity: 0, scale: 0.8 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1, delay: 0.2 }}
+          viewport={{ once: true }}
+        >
+          <motion.h2
+            className="text-7xl md:text-9xl lg:text-10xl font-black mb-6 bg-gradient-to-r from-red-400 via-red-300 to-yellow-400 bg-clip-text text-transparent text-glow tracking-wider"
+            initial={{ opacity: 0, y: -30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            viewport={{ once: true }}
+          >
+            LIVE STATS
+          </motion.h2>
           <motion.div
+            className="w-40 h-2 bg-gradient-to-r from-red-500 to-yellow-500 mx-auto rounded-full"
+            initial={{ scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            viewport={{ once: true }}
+          ></motion.div>
+        </motion.div>
+
+        {/* Stats Grid - Single column vertical layout */}
+        <div className="grid grid-cols-1 gap-6 lg:gap-8 max-w-2xl mx-auto">
+          {/* Total Prize Pool */}
+          <motion.div
+            className="group relative"
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            viewport={{ once: true }}
           >
-            <Card className="glass-red glow-hover border-red-400/30">
-              <CardHeader>
-                <CardTitle className="text-red-300">参与人数</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statsLoading ? (
-                  <Skeleton className="h-8 w-16 bg-red-900/50" />
-                ) : (
-                  <p className="text-2xl font-bold text-red-100">{totalParticipants}</p>
-                )}
-              </CardContent>
-            </Card>
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 flex flex-col justify-center h-full">
+                <motion.div
+                  className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.5 }}
+                  viewport={{ once: true }}
+                >
+                  Total Prize Pool
+                </motion.div>
+                <div className="space-y-3">
+                  {statusLoading ? (
+                    <Skeleton className="h-10 w-28 bg-red-900/50 mx-auto" />
+                  ) : (
+                    <>
+                      <motion.div
+                        className="text-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.6, delay: 0.7 }}
+                        viewport={{ once: true }}
+                      >
+                        <p className="text-3xl lg:text-4xl font-black text-red-100 mb-1">
+                          <SlotMachineNumber value={totalPrizePoolEth} duration={5} />
+                          <span className="text-xl lg:text-2xl ml-1 text-red-300">ETH</span>
+                        </p>
+                      </motion.div>
+                      <motion.div
+                        className="text-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.6, delay: 0.9 }}
+                        viewport={{ once: true }}
+                      >
+                        {ethPriceLoading ? (
+                          <Skeleton className="h-6 w-20 bg-red-900/50 mx-auto" />
+                        ) : (
+                          <p className="text-xl lg:text-2xl font-bold text-yellow-300">
+                            $<SlotMachineNumber value={totalPrizePoolUsd} duration={5} decimals={2} />
+                          </p>
+                        )}
+                      </motion.div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </motion.div>
 
+          {/* Participants */}
           <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
+            className="group relative"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            viewport={{ once: true }}
           >
-            <Card className="glass-red glow-hover border-red-400/30">
-              <CardHeader>
-                <CardTitle className="text-red-300">游戏状态</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statusLoading ? (
-                  <Skeleton className="h-8 w-20 bg-red-900/50" />
-                ) : (
-                  <p className="text-2xl font-bold text-red-100">{status?.status_text}</p>
-                )}
-              </CardContent>
-            </Card>
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 flex flex-col justify-center h-full">
+                <motion.div
+                  className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.6 }}
+                  viewport={{ once: true }}
+                >
+                  Participants
+                </motion.div>
+                <div>
+                  {statsLoading ? (
+                    <Skeleton className="h-10 w-20 bg-red-900/50 mx-auto" />
+                  ) : (
+                    <motion.p
+                      className="text-3xl lg:text-4xl font-black text-red-100"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.6, delay: 0.8 }}
+                      viewport={{ once: true }}
+                    >
+                      <AnimatedNumber value={totalParticipants} duration={0.8} />
+                    </motion.p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Game Status */}
+          <motion.div
+            className="group relative"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            viewport={{ once: true }}
+          >
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 flex flex-col justify-center h-full">
+                <motion.div
+                  className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.7 }}
+                  viewport={{ once: true }}
+                >
+                  Game Status
+                </motion.div>
+                <div>
+                  {statusLoading ? (
+                    <Skeleton className="h-10 w-24 bg-red-900/50 mx-auto" />
+                  ) : (
+                    <motion.p
+                      className="text-2xl lg:text-3xl font-black text-red-100 uppercase tracking-wide"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.6, delay: 0.9 }}
+                      viewport={{ once: true }}
+                    >
+                      {status?.status_text}
+                    </motion.p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* ETH/USD Live Price */}
+          <motion.div
+            className="group relative"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <div className="relative glass-red rounded-3xl p-6 lg:p-8 text-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-500/25 h-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 flex flex-col justify-center h-full">
+                <motion.div
+                  className="text-red-300 text-base lg:text-lg font-semibold mb-4 uppercase tracking-wider"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.8 }}
+                  viewport={{ once: true }}
+                >
+                  ETH/USD Live Price
+                </motion.div>
+                <div className="space-y-2">
+                  {ethPriceLoading ? (
+                    <Skeleton className="h-10 w-28 bg-red-900/50 mx-auto" />
+                  ) : (
+                    <motion.div
+                      className="text-center"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.6, delay: 1.0 }}
+                      viewport={{ once: true }}
+                    >
+                      <p className="text-3xl lg:text-4xl font-black text-yellow-300">
+                        $<AnimatedNumber value={ethPriceValue} duration={1} />
+                      </p>
+                    </motion.div>
+                  )}
+                  <motion.div
+                    className="text-center"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    transition={{ duration: 0.6, delay: 1.2 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className="text-xs lg:text-sm text-red-400 font-medium">Data Source: Binance</div>
+                  </motion.div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -178,7 +375,7 @@ function BettingSection({ teams, status, teamsLoading }: {
 
   useEffect(() => {
     if (isSuccess && address && selectedTeam !== null && selectedTeam !== undefined) {
-      // 记录用户下注到后端数据库（事件监听器会自动同步链上数据）
+      // Record user bet to backend database (event listeners will automatically sync on-chain data)
       const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5001/api';
       fetch(`${API_BASE_URL}/record_bet`, {
         method: 'POST',
@@ -196,14 +393,14 @@ function BettingSection({ teams, status, teamsLoading }: {
         return response.json();
       })
       .then(data => {
-        // 记录成功，关闭弹窗
+        // Record successful, close dialog
         setIsOpen(false);
         setBetAmount('');
         setSelectedTeam(null);
         reset();
       })
       
-      // 关闭弹窗
+      // Close dialog
       setIsOpen(false);
       setBetAmount('');
       setSelectedTeam(null);
@@ -225,28 +422,28 @@ function BettingSection({ teams, status, teamsLoading }: {
 
   const handleBet = async () => {
     if (!betAmount || isNaN(parseFloat(betAmount)) || parseFloat(betAmount) <= 0) {
-      alert('请输入有效的下注金额（大于0的数字）');
+      alert('Please enter a valid bet amount (greater than 0)');
       return;
     }
 
     if (!address) {
-      alert('请先连接钱包');
+      alert('Please connect your wallet first');
       return;
     }
 
     if (selectedTeam === null || selectedTeam === undefined) {
-      alert('请选择战队');
+      alert('Please select a team');
       return;
     }
 
     const amountInWei = parseEther(betAmount);
 
-    // 检查是否在正确的网络上
+    // Check if on correct network
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
         if (chainId !== '0xaa36a7') { // Sepolia chain ID in hex
-          alert('请切换到Sepolia测试网络');
+          alert('Please switch to Sepolia testnet');
           return;
         }
       } catch (chainError) {
@@ -261,18 +458,18 @@ function BettingSection({ teams, status, teamsLoading }: {
         functionName: 'bet',
         args: [BigInt(selectedTeam)],
         value: amountInWei,
-        gas: BigInt(200000), // 增加 gas limit
+        gas: BigInt(200000), // Increase gas limit
       });
     } catch (err) {
       console.error('writeContract error:', err);
-      alert(`调用合约失败: ${err instanceof Error ? err.message : '未知错误'}\n请检查控制台获取更多信息`);
+      alert(`Contract call failed: ${err instanceof Error ? err.message : 'Unknown error'}\nPlease check console for more details`);
     }
   };
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open && !isSuccess) {
-      // 关闭时重置状态，如果不是成功关闭
+      // Reset state on close, if not successful close
       setBetAmount('');
       setSelectedTeam(null);
       reset();
@@ -294,7 +491,7 @@ function BettingSection({ teams, status, teamsLoading }: {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          选择战队下注
+          Select Team to Bet
         </motion.h2>
 
         {!isConnected ? (
@@ -304,7 +501,7 @@ function BettingSection({ teams, status, teamsLoading }: {
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6 }}
           >
-            <h3 className="text-xl mb-4 text-red-100">请先连接钱包</h3>
+            <h3 className="text-xl mb-4 text-red-100">Please connect your wallet first</h3>
             <ConnectButton />
           </motion.div>
         ) : (
@@ -344,8 +541,8 @@ function BettingSection({ teams, status, teamsLoading }: {
                         <CardTitle className="text-red-300">{team.name}</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-red-200">总下注: {(parseFloat(team.total_bet_wei) / 10**18).toFixed(6)} ETH</p>
-                        <p className="text-sm text-red-200">支持者: {team.supporters}</p>
+                        <p className="text-sm text-red-200">Total Bets: {(parseFloat(team.total_bet_wei) / 10**18).toFixed(6)} ETH</p>
+                        <p className="text-sm text-red-200">Supporters: {team.supporters}</p>
 
                         <Dialog open={isOpen && selectedTeam === team.id} onOpenChange={(open) => {
                           if (open) {
@@ -355,19 +552,19 @@ function BettingSection({ teams, status, teamsLoading }: {
                         }}>
                           <DialogTrigger asChild>
                             <Button className="w-full mt-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white glow-hover">
-                              下注
+                              Bet
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="glass-red border-red-400/30 text-white">
                             <DialogHeader>
-                              <DialogTitle className="text-red-300">下注 {team.name}</DialogTitle>
+                              <DialogTitle className="text-red-300">Bet on {team.name}</DialogTitle>
                               <DialogDescription className="text-red-200">
-                                请输入下注金额并确认交易。队伍ID: {team.id}
+                                Please enter your bet amount and confirm the transaction. Team ID: {team.id}
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
                               <div>
-                                <label className="block text-sm mb-2 text-white">下注金额 (ETH)</label>
+                                <label className="block text-sm mb-2 text-white">Bet Amount (ETH)</label>
                                 <Input
                                   type="number"
                                   step="0.001"
@@ -380,18 +577,18 @@ function BettingSection({ teams, status, teamsLoading }: {
                               </div>
                               {betAmount && parseFloat(betAmount) > 0 && (
                                 <div className="p-4 bg-red-900/30 rounded border border-red-400/30">
-                                  <p className="text-sm text-red-100">预计收益: {calculateOdds().toFixed(6)} ETH</p>
+                                  <p className="text-sm text-red-100">Expected Payout: {calculateOdds().toFixed(6)} ETH</p>
                                 </div>
                               )}
                               {error && (
                                 <div className="p-4 bg-red-900/50 rounded border border-red-500/50">
-                                  <p className="text-sm text-red-300">错误: {error.message}</p>
+                                  <p className="text-sm text-red-300">Error: {error.message}</p>
                                 </div>
                               )}
                               {isSuccess && (
                                 <div className="p-4 bg-green-900/30 rounded border border-green-400/50">
-                                  <p className="text-sm text-green-300">✅ 交易成功！</p>
-                                  <p className="text-xs text-green-400 break-all">交易哈希: {hash}</p>
+                                  <p className="text-sm text-green-300">✅ Transaction Successful!</p>
+                                  <p className="text-xs text-green-400 break-all">Transaction Hash: {hash}</p>
                                 </div>
                               )}
                               <Button
@@ -399,7 +596,7 @@ function BettingSection({ teams, status, teamsLoading }: {
                                 onClick={handleBet}
                                 disabled={isPending || isConfirming || !betAmount || parseFloat(betAmount) <= 0}
                               >
-                                {isPending ? '请在钱包中确认...' : isConfirming ? '交易处理中...' : `确认下注 ${betAmount || '0'} ETH`}
+                                {isPending ? 'Confirm in wallet...' : isConfirming ? 'Processing transaction...' : `Confirm bet ${betAmount || '0'} ETH`}
                               </Button>
                             </div>
                           </DialogContent>

@@ -180,15 +180,20 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
         <CardTitle className="text-red-300">{team.name}</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* 明显的测试文本 */}
+        <div className="bg-yellow-500 text-black p-2 mb-2 rounded text-center font-bold">
+          🧪 测试模式 - 如果你看到这个，代码已更新
+        </div>
+        
         <p className="text-sm text-red-200">总下注: {(parseFloat(team.total_bet_wei) / 10**18).toFixed(6)} ETH</p>
         <p className="text-sm text-red-200">支持者: {team.supporters}</p>
         
         {/* 测试按钮 */}
         <Button 
-          className="w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white"
-          onClick={() => alert('测试按钮被点击了！')}
+          className="w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg"
+          onClick={() => alert('🎉 测试按钮被点击了！时间: ' + new Date().toLocaleString())}
         >
-          测试按钮
+          🧪 测试按钮 (点击我!)
         </Button>
         
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>

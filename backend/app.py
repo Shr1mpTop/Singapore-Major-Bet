@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote
 import json
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -570,6 +571,24 @@ def get_status():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """获取全局统计数据, now with cleaned logging."""
+    def fetch_eth_price_usd():
+        """Try multiple providers with timeouts; fall back to env/static price."""
+        price_sources = [
+            ("binance", "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT", lambda r: float(r.json()["price"])),
+            ("coinbase", "https://api.coinbase.com/v2/prices/ETH-USD/spot", lambda r: float(r.json()["data"]["amount"])),
+        ]
+
+        for name, url, parser in price_sources:
+            try:
+                resp = requests.get(url, timeout=5)
+                resp.raise_for_status()
+                price = parser(resp)
+                if price > 0:
+                    return price
+            except Exception as exc:
+                print(f"⚠️ Fetch {name} price failed: {exc}")
+
+        return float(os.getenv("FALLBACK_ETH_PRICE_USD", "3000"))
     # 计算总唯一参与者数量
     total_unique_participants = db.session.query(func.count(func.distinct(UserBet.user_address))).scalar()
     
@@ -584,9 +603,7 @@ def get_stats():
     # Calculate weapon equivalents
     weapon_equivalents = []
     try:
-        eth_price_response = requests.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT')
-        eth_price_response.raise_for_status()
-        eth_price_usd = float(eth_price_response.json()['price'])
+        eth_price_usd = fetch_eth_price_usd()
         total_prize_pool_usd = total_prize_pool_eth * eth_price_usd
         
         # The detailed logging within this loop is now removed.
@@ -650,24 +667,39 @@ def get_leaderboard():
 # Path to the directory where logos are stored, relative to the backend app.py file
 LOGO_DIR_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'public', 'teams'))
 
+def _normalize_team_string(name: str) -> str:
+    """Lowercase and collapse separators so case/space differences do not break lookups."""
+    return name.lower().replace('-', ' ').replace('_', ' ').strip()
+
 def get_logo_url(team_name):
-    """Find the logo URL for a team by its name, checking for webp, svg, and png."""
-    # Sanitize the team name to create a filename (e.g., "Team Spirit" -> "spirit")
-    # This is a simple example; you might need more robust logic
-    filename = team_name.lower().split(" ")[-1]
+    """Find the logo URL for a team by its name, checking available files case-insensitively."""
+    try:
+        available_files = [f for f in os.listdir(LOGO_DIR_PATH) if os.path.isfile(os.path.join(LOGO_DIR_PATH, f))]
+    except FileNotFoundError:
+        print(f"⚠️ Logo directory not found: {LOGO_DIR_PATH}")
+        return "/teams/default.png"
 
-    for ext in ['webp', 'svg', 'png']:
-        if os.path.exists(os.path.join(LOGO_DIR_PATH, f"{filename}.{ext}")):
-            return f"/teams/{filename}.{ext}"
-    
-    # Fallback for names that might not match the simple split logic
-    # (e.g., G2 Esports -> g2)
-    if os.path.exists(os.path.join(LOGO_DIR_PATH, f"{team_name.lower().replace(' esports', '')}.webp")):
-        return f"/teams/{team_name.lower().replace(' esports', '')}.webp"
-    if os.path.exists(os.path.join(LOGO_DIR_PATH, f"{team_name.lower().replace(' esports', '')}.svg")):
-        return f"/teams/{team_name.lower().replace(' esports', '')}.svg"
+    normalized_files = {
+        _normalize_team_string(os.path.splitext(fname)[0]): fname for fname in available_files
+    }
 
-    # Default if no specific logo is found
+    base = _normalize_team_string(team_name)
+    candidates = {
+        base,
+        base.replace(' esports', '').strip(),
+        base.replace('  ', ' '),
+        ''.join(base.split()),
+        base.split(' ')[-1],
+    }
+
+    for candidate in candidates:
+        if candidate in normalized_files:
+            filename = normalized_files[candidate]
+            return f"/teams/{quote(filename)}"
+
+    # Default if no specific logo is found; fallback to the first available logo to avoid 404s
+    if available_files:
+        return f"/teams/{quote(available_files[0])}"
     return "/teams/default.png"
 
 @app.route('/api/teams', methods=['GET'])

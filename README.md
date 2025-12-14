@@ -103,8 +103,8 @@ This project is designed for a separated frontend and backend deployment, a stan
 
 | Service    | Platform    | Technology       | URL Pattern                                      |
 | :--------- | :---------- | :--------------- | :----------------------------------------------- |
-| Backend    | Render.com  | Flask + Gunicorn | `https://your-backend-name.onrender.com`         |
-| Frontend   | Render.com  | Next.js          | `https://your-frontend-name.onrender.com`        |
+| Backend    | Render.com  | Flask + Gunicorn | `https://singapore-major-bet-backend.onrender.com`         |
+| Frontend   | Render.com  | Next.js          | `https://singapore-major-bet-frontend.onrender.com`        |
 | Blockchain | Sepolia     | Ethereum Testnet | Accessible via RPC endpoint                      |
 
 ---

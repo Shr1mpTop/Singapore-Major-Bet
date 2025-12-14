@@ -746,7 +746,7 @@ function MainContent() {
   const { data: status, isLoading: statusLoading } = useStatus();
   const { data: stats, isLoading: statsLoading } = useStats();
 
-  const bettingSectionRef = useRef<HTMLElement>(null);
+  const bettingSectionRef = useRef<HTMLDivElement>(null);
 
   const handleScrollToBetting = () => {
     bettingSectionRef.current?.scrollIntoView({ behavior: 'smooth' });

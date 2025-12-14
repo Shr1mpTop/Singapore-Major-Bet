@@ -27,7 +27,14 @@ const BET_ABI = [
 const CONTRACT_ADDRESS: `0x${string}` = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb5c4bea741cea63b2151d719b2cca12e80e6c7e8') as `0x${string}`;
 
 // 单个队伍的下注卡片组件
-function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; total_bet_wei: string; supporters: number }; totalPool: number }) {
+function TeamBetCard({ team, totalPool }: { team: TeamData; totalPool: number }) {
+  // 从 TeamData 转换/重命名 props 以匹配组件的期望
+  const teamProps = {
+    ...team,
+    total_bet_wei: (team.prize_pool_eth * 10**18).toString(),
+    supporters: team.bets_count
+  };
+
   console.log('TeamBetCard rendering for team:', team.id, team.name);
   
   const [betAmount, setBetAmount] = useState('');
@@ -63,7 +70,7 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userAddress: address,
-          teamId: team.id,
+          teamId: teamProps.id,
           amount: (parseEther(betAmount)).toString(),  // Wei string
         }),
       })
@@ -91,7 +98,7 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
 
   const calculateOdds = () => {
     const userAmount = parseFloat(betAmount) || 0;
-    const teamPool = parseFloat(team.total_bet_wei) / 10**18;
+    const teamPool = parseFloat(teamProps.total_bet_wei) / 10**18;
     const totalPoolAmount = parseFloat(status?.total_prize_pool_wei || '0') / 10**18;
     const finalPool = totalPoolAmount * 0.9;
     if (teamPool === 0) return 0;
@@ -117,8 +124,8 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
     const amountInWei = parseEther(betAmount);
     
     console.log('正在下注:', {
-      teamId: team.id,
-      teamName: team.name,
+      teamId: teamProps.id,
+      teamName: teamProps.name,
       amount: betAmount,
       amountInWei: amountInWei.toString(),
       contractAddress: CONTRACT_ADDRESS,
@@ -145,7 +152,7 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
       console.log('Calling writeContract with params:', {
         address: CONTRACT_ADDRESS,
         functionName: 'bet',
-        args: [BigInt(team.id)],
+        args: [BigInt(teamProps.id)],
         value: amountInWei.toString(),
         gas: '100000'
       });
@@ -154,7 +161,7 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
         address: CONTRACT_ADDRESS,
         abi: BET_ABI,
         functionName: 'bet',
-        args: [BigInt(team.id)],
+        args: [BigInt(teamProps.id)],
         value: amountInWei,
         gas: BigInt(200000), // 增加 gas limit
       });
@@ -177,12 +184,12 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
   return (
     <Card className="glass-red glow-hover border-red-400/30 transition-all duration-300">
       <CardHeader>
-        <CardTitle className="text-red-300">{team.name}</CardTitle>
+        <CardTitle className="text-red-300">{teamProps.name}</CardTitle>
       </CardHeader>
       <CardContent>
     
-        <p className="text-sm text-red-200">总下注: {(parseFloat(team.total_bet_wei) / 10**18).toFixed(6)} ETH</p>
-        <p className="text-sm text-red-200">支持者: {team.supporters}</p>
+        <p className="text-sm text-red-200">总下注: {(parseFloat(teamProps.total_bet_wei) / 10**18).toFixed(6)} ETH</p>
+        <p className="text-sm text-red-200">支持者: {teamProps.supporters}</p>
         
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
@@ -192,9 +199,9 @@ function TeamBetCard({ team, totalPool }: { team: { id: number; name: string; to
           </DialogTrigger>
           <DialogContent className="glass-red border-red-400/30 text-white">
             <DialogHeader>
-              <DialogTitle className="text-red-300">下注 {team.name}</DialogTitle>
+              <DialogTitle className="text-red-300">下注 {teamProps.name}</DialogTitle>
               <DialogDescription className="text-red-200">
-                请输入下注金额并确认交易。队伍ID: {team.id}
+                请输入下注金额并确认交易。队伍ID: {teamProps.id}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

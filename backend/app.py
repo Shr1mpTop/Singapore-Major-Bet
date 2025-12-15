@@ -78,14 +78,11 @@ ETHERSCAN_BASE_URL = "https://api.etherscan.io/v2/api"  # V2 API for all network
 # 目标方法ID：bet(uint265 _teamId)
 TARGET_METHOD_ID = "0x7365870b"
 
-def get_live_dragon_lore_price_usd():
+def get_live_weapon_price_usd(hash_name, fallback_price_usd=1000):
     """
-    Fetches the live price of a Dragon Lore from the user's custom API endpoint.
-    This version has been cleaned up to reduce excessive logging.
+    Fetches the live price of any CS2 weapon skin from the user's custom API endpoint.
+    This is a generic function that can be used for any weapon skin.
     """
-    hash_name = "AWP | Dragon Lore (Factory New)"
-    fallback_price_usd = 10000
-
     try:
         # 1. Construct and call the API
         base_url = "https://buffotte.hezhili.online/api/bufftracker/price/"
@@ -125,7 +122,7 @@ def get_live_dragon_lore_price_usd():
         
         price_usd = price_cny * exchange_rate
         # --- CLEANED LOG ---
-        print(f"✅ Live Dragon Lore price updated: ${price_usd:.2f}")
+        print(f"✅ Live {hash_name} price updated: ${price_usd:.2f}")
 
         with app.app_context():
             weapon = Weapon.query.get(hash_name)
@@ -140,7 +137,7 @@ def get_live_dragon_lore_price_usd():
 
     except Exception as e:
         # --- CLEANED LOG ---
-        print(f"❌ Could not fetch live Dragon Lore price: {e}. Using cache/fallback.")
+        print(f"❌ Could not fetch live {hash_name} price: {e}. Using cache/fallback.")
         with app.app_context():
             # FIX: Updated from legacy db.query.get() to db.session.get()
             weapon = db.session.get(Weapon, hash_name)
@@ -148,14 +145,28 @@ def get_live_dragon_lore_price_usd():
                 return weapon.price_usd
         return fallback_price_usd
 
+def get_live_dragon_lore_price_usd():
+    """
+    Fetches the live price of a Dragon Lore from the user's custom API endpoint.
+    This function is kept for backward compatibility.
+    """
+    return get_live_weapon_price_usd("AWP | Dragon Lore (Factory New)", 10000)
+
 # Pre-defined list of popular CS2 weapon skins
 # This list MUST be defined AFTER the functions it calls.
+# Listed from lowest to highest value, with Dragon Lore as the final milestone
 WEAPON_SKINS = [
-    {"name": "Dragon Lore (AWP)", "price_func": get_live_dragon_lore_price_usd, "img": "/Dragon Lore (AWP).webp"},
-    {"name": "Karambit | Case Hardened (Blue Gem)", "price": 100000, "img": "/skins/karambit_blue_gem.png"},
-    {"name": "Howl (M4A4)", "price": 3000, "img": "/skins/howl.png"},
-    {"name": "AK-47 | Fire Serpent", "price": 1500, "img": "/skins/fire_serpent.png"},
-    {"name": "Gungnir (AWP)", "price": 8000, "img": "/skins/gungnir.png"},
+    {"name": "Tec-9 | Groundwater (Battle-Scarred)", "price_func": lambda: get_live_weapon_price_usd("Tec-9 | Groundwater (Battle-Scarred)", 5), "img": "/skins/Tec-9 | Groundwater.webp"},
+    {"name": "MAC-10 | Tatter (Well-Worn)", "price_func": lambda: get_live_weapon_price_usd("MAC-10 | Tatter (Well-Worn)", 8), "img": "/skins/MAC-10 | Tatter (Well-Worn)  .webp"},
+    {"name": "StatTrak™ Music Kit | TWERL and Ekko & Sidetrack, Under Bright Lights", "price_func": lambda: get_live_weapon_price_usd("StatTrak™ Music Kit | TWERL and Ekko & Sidetrack, Under Bright Lights", 15), "img": "/skins/StatTrak™ Music Kit | TWERL and Ekko & Sidetrack, Under Bright Lights  .webp"},
+    {"name": "Crasswater The Forgotten | Guerrilla Warfare", "price_func": lambda: get_live_weapon_price_usd("Crasswater The Forgotten | Guerrilla Warfare", 25), "img": "/skins/Crasswater The Forgotten | Guerrilla Warfare  .webp"},
+    {"name": "Souvenir Galil AR | CAUTION! (Factory New)", "price_func": lambda: get_live_weapon_price_usd("Souvenir Galil AR | CAUTION! (Factory New)", 40), "img": "/skins/Souvenir Galil AR | CAUTION! (Factory New)  .webp"},
+    {"name": "M4A4 | Hellish (Minimal Wear)", "price_func": lambda: get_live_weapon_price_usd("M4A4 | Hellish (Minimal Wear)", 80), "img": "/skins/M4A4 | Hellish (Minimal Wear)  .webp"},
+    {"name": "StatTrak™ AK-47 | Vulcan (Well-Worn)", "price_func": lambda: get_live_weapon_price_usd("StatTrak™ AK-47 | Vulcan (Well-Worn)", 150), "img": "/skins/StatTrak™ AK-47 | Vulcan (Well-Worn)  .webp"},
+    {"name": "★ Sport Gloves | Nocts (Field-Tested)", "price_func": lambda: get_live_weapon_price_usd("★ Sport Gloves | Nocts (Field-Tested)", 300), "img": "/skins/Sport Gloves | Nocts (Field-Tested)  .webp"},
+    {"name": "★ Karambit | Gamma Doppler (Factory New)", "price_func": lambda: get_live_weapon_price_usd("★ Karambit | Gamma Doppler (Factory New)", 800), "img": "/skins/Karambit | Gamma Doppler (Factory New)  .webp"},
+    {"name": "★ Butterfly Knife | Crimson Web (Factory New)", "price_func": lambda: get_live_weapon_price_usd("★ Butterfly Knife | Crimson Web (Factory New)", 2000), "img": "/skins/Butterfly Knife | Crimson Web (Factory New)  .webp"},
+    {"name": "AWP | Dragon Lore (Factory New)", "price_func": get_live_dragon_lore_price_usd, "img": "/skins/AWP | Dragon Lore (Factory New).webp"},
 ]
 
 # --- 2. 数据库模型 (Models) ---
@@ -600,13 +611,14 @@ def get_stats():
     total_prize_pool_wei = game_state.total_prize_pool if game_state else "0"
     total_prize_pool_eth = float(web3.from_wei(int(total_prize_pool_wei), 'ether'))
     
-    # Calculate weapon equivalents
+    # Calculate weapon equivalents with smart upgrade mechanism
     weapon_equivalents = []
     try:
         eth_price_usd = fetch_eth_price_usd()
         total_prize_pool_usd = total_prize_pool_eth * eth_price_usd
         
-        # The detailed logging within this loop is now removed.
+        # Calculate each weapon's count and progress
+        weapon_data = []
         for weapon in WEAPON_SKINS:
             price = weapon.get("price")
             if "price_func" in weapon:
@@ -615,15 +627,57 @@ def get_stats():
             if price and price > 0:
                 count = int(total_prize_pool_usd / price)
                 progress = (total_prize_pool_usd % price) / price * 100
-                weapon_equivalents.append({
+                weapon_data.append({
                     "name": weapon['name'],
                     "count": count,
                     "img": weapon['img'],
                     "price_usd": price,
-                    "progress": round(progress, 2)
+                    "progress": round(progress, 2),
+                    "raw_count": total_prize_pool_usd / price  # Keep decimal for smart upgrade
                 })
         
-        weapon_equivalents.sort(key=lambda x: x['count'], reverse=True)
+        # Smart upgrade mechanism: Find the highest tier weapon we can afford at least 60% of
+        best_weapon = None
+        best_tier = -1
+        
+        for i, weapon in enumerate(weapon_data):
+            weapon_count = total_prize_pool_usd / weapon['price_usd']
+            
+            if weapon_count >= 0.6:
+                # We can afford at least 60% of this weapon
+                if weapon_count >= 1:
+                    display_count = int(weapon_count)
+                    progress_to_next = (weapon_count % 1) * 100
+                else:
+                    display_count = round(weapon_count, 1)
+                    progress_to_next = weapon_count * 100
+                
+                candidate = {
+                    "name": weapon['name'],
+                    "count": display_count,
+                    "img": weapon['img'],
+                    "price_usd": weapon['price_usd'],
+                    "progress": min(round(progress_to_next, 1), 99.9)
+                }
+                
+                # Prefer higher tier weapons (higher index = higher tier)
+                if i > best_tier:
+                    best_weapon = candidate
+                    best_tier = i
+        
+        # If we can't afford 60% of any weapon, show the cheapest one with count
+        if best_weapon is None and weapon_data:
+            cheapest = weapon_data[0]
+            best_weapon = {
+                "name": cheapest['name'],
+                "count": cheapest['count'],
+                "img": cheapest['img'],
+                "price_usd": cheapest['price_usd'],
+                "progress": cheapest['progress']
+            }
+        
+        if best_weapon:
+            weapon_equivalents.append(best_weapon)
 
     except Exception as e:
         # Error during the broader stats calculation

@@ -100,7 +100,10 @@ export function FunFactsSection() {
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 100, damping: 10, delay: 0.2 }}
                     >
-                      {prizeWeapon.count.toLocaleString()}
+                      {typeof prizeWeapon.count === 'number' && !Number.isInteger(prizeWeapon.count) 
+                        ? prizeWeapon.count.toFixed(1) 
+                        : prizeWeapon.count.toLocaleString()
+                      }
                     </motion.div>
                     <p className="text-2xl font-bold text-red-100 mb-4">{prizeWeapon.name}(s)</p>
                     <motion.img 

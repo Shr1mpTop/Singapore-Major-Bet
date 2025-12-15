@@ -92,9 +92,21 @@ export function useEthPrice() {
   return useQuery<EthPriceData>({
     queryKey: ['ethPrice'],
     queryFn: async () => {
-      const response = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
-      return response.data;
+      try {
+        // 尝试从币安API获取ETH/USDT汇率
+        const response = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT', {
+          timeout: 5000, // 5秒超时
+        });
+        return response.data;
+      } catch (error) {
+        return {
+          symbol: 'ETHUSDT',
+          price: '3000'
+        };
+      }
     },
     refetchInterval: 10000, // Refresh every 10 seconds for price data
+    retry: 2, // 失败时重试2次
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 指数退避
   });
 }

@@ -184,6 +184,9 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
   const { data: ethPrice, isLoading: ethPriceLoading } = useEthPrice();
   const ethPriceValue = ethPrice ? parseFloat(ethPrice.price) : 0;
   const totalPrizePoolUsd = totalPrizePoolEth * ethPriceValue;
+  
+  // 检测数据来源
+  const dataSource = ethPrice && ethPrice.price === '3000' ? 'Fixed Rate' : 'Binance';
 
   return (
     <motion.section
@@ -455,7 +458,7 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                     viewport={{ once: true }}
                   >
                     <div className="text-xs lg:text-sm text-red-400 font-medium bg-red-900/20 px-3 py-1 rounded-full inline-block">
-                      📊 Data Source: Binance
+                      📊 Data Source: {dataSource}
                     </div>
                   </motion.div>
                 </div>

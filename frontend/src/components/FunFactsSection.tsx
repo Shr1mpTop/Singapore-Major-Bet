@@ -113,6 +113,26 @@ export function FunFactsSection() {
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ duration: 0.8, delay: 0.4 }}
+                      onError={(e) => {
+                        console.error('图片加载失败 (移动端):', {
+                          originalSrc: prizeWeapon.img,
+                          userAgent: navigator.userAgent,
+                          error: e
+                        });
+                        // 尝试修复常见的问题
+                        const img = e.currentTarget;
+                        const originalSrc = prizeWeapon.img;
+                        
+                        // 尝试1: 移除文件名末尾的额外空格
+                        if (originalSrc.includes('  .webp')) {
+                          img.src = originalSrc.replace('  .webp', '.webp');
+                          return;
+                        }
+                        
+                        // 尝试2: 使用备用图片
+                        img.src = '/awp-dragon-lore-fallback.png';
+                      }}
+                      loading="lazy"
                     />
                     
                     {/* Progress Bar Section */}

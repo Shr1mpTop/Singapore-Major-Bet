@@ -233,58 +233,87 @@ class UserBet(db.Model):
 
 def update_team_stats():
     """更新团队统计数据和总奖池"""
-    try:
-        # 获取数据库中的统计数据
-        from sqlalchemy import func
-        team_stats = db.session.query(
-            UserBet.team_id,
-            func.count(func.distinct(UserBet.user_address)).label('unique_supporters'),
-            func.sum(UserBet.amount_wei).label('total_amount_wei')
-        ).group_by(UserBet.team_id).all()
-        
-        # 计算总奖池（所有投注的总和）
-        total_prize_pool = db.session.query(func.sum(UserBet.amount_wei)).scalar() or "0"
-        
-        # 更新GameState表中的总奖池
-        game_state = GameState.query.first()
-        if game_state:
-            game_state.total_prize_pool = str(total_prize_pool)
-        
-        # 创建team_id到统计数据的映射
-        team_stats_dict = {stat.team_id: stat for stat in team_stats}
-        
-        # 更新现有团队的统计数据
-        teams = Team.query.all()
-        for team in teams:
-            if team.id in team_stats_dict:
-                stat = team_stats_dict[team.id]
-                team.supporter_count = stat.unique_supporters
-                team.total_bet_amount = str(stat.total_amount_wei or "0")
+    with app.app_context():
+        try:
+            # 获取数据库中的统计数据
+            from sqlalchemy import func
+            team_stats = db.session.query(
+                UserBet.team_id,
+                func.count(func.distinct(UserBet.user_address)).label('unique_supporters'),
+                func.sum(UserBet.amount_wei).label('total_amount_wei')
+            ).group_by(UserBet.team_id).all()
+            
+            # 计算总奖池（所有投注的总和）
+            total_prize_pool = db.session.query(func.sum(UserBet.amount_wei)).scalar() or "0"
+            
+            # 更新GameState表中的总奖池
+            game_state = GameState.query.first()
+            if game_state:
+                game_state.total_prize_pool = str(total_prize_pool)
+            
+            # 创建team_id到统计数据的映射
+            team_stats_dict = {stat.team_id: stat for stat in team_stats}
+            
+            # 更新现有团队的统计数据
+            teams = Team.query.all()
+            for team in teams:
+                if team.id in team_stats_dict:
+                    stat = team_stats_dict[team.id]
+                    team.supporter_count = stat.unique_supporters
+                    team.total_bet_amount = str(stat.total_amount_wei or "0")
+                else:
+                    team.supporter_count = 0
+                    team.total_bet_amount = "0"
+            
+            db.session.commit()
+            print(f"✅ Updated stats for {len(teams)} teams, total prize pool: {total_prize_pool} wei")
+            return {"message": "Team stats and prize pool updated successfully"}
+            
+        except Exception as e:
+            print(f"❌ Error updating team stats: {e}")
+            db.session.rollback()
+            return {"error": str(e)}
+
+def update_game_status():
+    """从智能合约同步游戏状态"""
+    with app.app_context():
+        try:
+            # 从合约获取当前状态
+            contract_status = contract.functions.status().call()
+            contract_winning_team_id = contract.functions.winningTeamId().call()
+
+            # 更新数据库中的游戏状态
+            game_state = GameState.query.first()
+            if not game_state:
+                game_state = GameState(id=1, status=0, total_prize_pool="0", winning_team_id=None)
+                db.session.add(game_state)
+
+            # 更新状态和获胜队伍ID
+            game_state.status = int(contract_status)
+            # 只有当游戏状态是Finished或Refunding时，winning_team_id才有意义
+            if contract_status in [2, 3]:  # Finished or Refunding
+                game_state.winning_team_id = int(contract_winning_team_id)
             else:
-                team.supporter_count = 0
-                team.total_bet_amount = "0"
-        
-        db.session.commit()
-        print(f"✅ Updated stats for {len(teams)} teams, total prize pool: {total_prize_pool} wei")
-        return {"message": "Team stats and prize pool updated successfully"}
-        
-    except Exception as e:
-        print(f"❌ Error updating team stats: {e}")
-        db.session.rollback()
-        return {"error": str(e)}
+                game_state.winning_team_id = None
+
+            db.session.commit()
+            print(f"✅ Updated game status: status={contract_status}, winning_team_id={contract_winning_team_id}")
+            return {"message": "Game status updated successfully", "status": contract_status, "winning_team_id": contract_winning_team_id}
+
+        except Exception as e:
+            print(f"❌ Error updating game status: {e}")
+            db.session.rollback()
+            return {"error": str(e)}
+
 def sync_data_from_chain():
     """同步数据并更新统计"""
     try:
+        # 更新游戏状态从智能合约
+        update_game_status()
+
         # 更新团队统计数据
         update_team_stats()
-        
-        # 更新游戏状态（如果需要）
-        state = GameState.query.first()
-        if not state:
-            state = GameState(id=1, status=0, total_prize_pool="0", winning_team_id=None)
-            db.session.add(state)
-            db.session.commit()
-        
+
         return {"message": "Synced successfully"}
     except Exception as e:
         print(f"Sync error: {e}")
@@ -318,6 +347,17 @@ def get_contract_transactions_from_etherscan():
     except Exception as e:
         print(f"Error calling Etherscan API: {e}")
         return []
+
+def game_status_sync_worker():
+    """后台线程：定期从智能合约同步游戏状态"""
+    print("🎯 Game status sync worker started")
+    while True:
+        try:
+            update_game_status()
+            time.sleep(30)  # 每30秒同步一次游戏状态
+        except Exception as e:
+            print(f"Game status sync error: {e}")
+            time.sleep(60)  # 出错后等待60秒再试
 
 def setup_event_listeners():
     """设置智能合约事件监听器，实现实时数据同步"""
@@ -371,6 +411,11 @@ def setup_event_listeners():
         print("Etherscan event listener thread started (1 minute intervals)")
     else:
         print("Etherscan API key not configured, skipping event listener")
+
+    # 启动游戏状态同步线程
+    status_sync_thread = threading.Thread(target=game_status_sync_worker, daemon=True)
+    status_sync_thread.start()
+    print("Game status sync thread started (30 second intervals)")
 
 def process_transactions(transactions, processed_tx_hashes):
     """处理Etherscan API返回的交易列表，记录所有字段到数据库
@@ -477,6 +522,70 @@ def process_transactions(transactions, processed_tx_hashes):
     return new_bets_count
 
 # --- 5. API 接口 (Routes) ---
+
+@app.route('/api/withdraw', methods=['POST'])
+def withdraw_prize():
+    """用户体现奖金或退款"""
+    try:
+        data = request.get_json()
+        user_address = data.get('user_address')
+        team_id = data.get('team_id')
+
+        if not user_address or team_id is None:
+            return jsonify({"error": "Missing user_address or team_id"}), 400
+
+        # 验证用户地址格式
+        try:
+            user_address = Web3.to_checksum_address(user_address)
+        except:
+            return jsonify({"error": "Invalid user address format"}), 400
+
+        # 获取当前状态
+        state = GameState.query.first()
+        if not state:
+            return jsonify({"error": "Game state not found"}), 404
+
+        # 检查游戏状态
+        if state.status not in [2, 3]:  # 2: Finished, 3: Refunding
+            return jsonify({"error": "Game is not in withdrawal phase"}), 400
+
+        # 检查用户是否有余额
+        user_bet = UserBet.query.filter_by(
+            user_address=user_address,
+            team_id=team_id
+        ).first()
+
+        if not user_bet or user_bet.amount_wei == 0:
+            return jsonify({"error": "No balance to withdraw for this team"}), 400
+
+        # 构建交易
+        nonce = web3.eth.get_transaction_count(user_address)
+        gas_price = web3.eth.gas_price
+
+        # withdraw函数的参数
+        withdraw_txn = contract.functions.withdraw(team_id).build_transaction({
+            'from': user_address,
+            'nonce': nonce,
+            'gas': 200000,
+            'gasPrice': gas_price,
+        })
+
+        return jsonify({
+            "success": True,
+            "transaction": {
+                "to": contract_address,
+                "data": withdraw_txn['data'],
+                "gas": withdraw_txn['gas'],
+                "gasPrice": withdraw_txn['gasPrice'],
+                "nonce": nonce
+            },
+            "amount_wei": user_bet.amount_wei,
+            "status": "Finished" if state.status == 2 else "Refunding"
+        })
+
+    except Exception as e:
+        print(f"Withdraw error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/user_bets/<user_address>', methods=['GET'])
 def get_user_bets(user_address):
@@ -618,66 +727,35 @@ def get_stats():
         total_prize_pool_usd = total_prize_pool_eth * eth_price_usd
         
         # Calculate each weapon's count and progress
-        weapon_data = []
+        all_weapons = []
         for weapon in WEAPON_SKINS:
             price = weapon.get("price")
             if "price_func" in weapon:
                 price = weapon["price_func"]() # Call function for dynamic price
             
             if price and price > 0:
-                count = int(total_prize_pool_usd / price)
-                progress = (total_prize_pool_usd % price) / price * 100
-                weapon_data.append({
-                    "name": weapon['name'],
-                    "count": count,
-                    "img": weapon['img'],
-                    "price_usd": price,
-                    "progress": round(progress, 2),
-                    "raw_count": total_prize_pool_usd / price  # Keep decimal for smart upgrade
-                })
-        
-        # Smart upgrade mechanism: Find the highest tier weapon we can afford at least 60% of
-        best_weapon = None
-        best_tier = -1
-        
-        for i, weapon in enumerate(weapon_data):
-            weapon_count = total_prize_pool_usd / weapon['price_usd']
-            
-            if weapon_count >= 0.6:
-                # We can afford at least 60% of this weapon
-                if weapon_count >= 1:
-                    display_count = int(weapon_count)
-                    progress_to_next = (weapon_count % 1) * 100
-                else:
-                    display_count = round(weapon_count, 1)
-                    progress_to_next = weapon_count * 100
+                raw_count = total_prize_pool_usd / price
                 
-                candidate = {
+                # Calculate progress and count based on new requirements
+                if raw_count >= 1:
+                    # Can buy 1 or more, show 100% progress
+                    display_count = int(raw_count)
+                    progress = 100.0
+                else:
+                    # Can't buy even 1, show progress toward buying one
+                    display_count = 0
+                    progress = round(raw_count * 100, 1)
+                
+                all_weapons.append({
                     "name": weapon['name'],
                     "count": display_count,
                     "img": weapon['img'],
-                    "price_usd": weapon['price_usd'],
-                    "progress": min(round(progress_to_next, 1), 99.9)
-                }
-                
-                # Prefer higher tier weapons (higher index = higher tier)
-                if i > best_tier:
-                    best_weapon = candidate
-                    best_tier = i
+                    "price_usd": price,
+                    "progress": progress,
+                    "raw_count": raw_count
+                })
         
-        # If we can't afford 60% of any weapon, show the cheapest one with count
-        if best_weapon is None and weapon_data:
-            cheapest = weapon_data[0]
-            best_weapon = {
-                "name": cheapest['name'],
-                "count": cheapest['count'],
-                "img": cheapest['img'],
-                "price_usd": cheapest['price_usd'],
-                "progress": cheapest['progress']
-            }
-        
-        if best_weapon:
-            weapon_equivalents.append(best_weapon)
+        weapon_equivalents.extend(all_weapons)
 
     except Exception as e:
         # Error during the broader stats calculation
@@ -791,6 +869,8 @@ with app.app_context():
 
 # 启动事件监听器
 setup_event_listeners()
+
+# --- 应用启动 ---
 
 if __name__ == '__main__':
     # 生产环境使用gunicorn，开发环境使用flask内置服务器

@@ -1,11 +1,12 @@
-'use client';
+"use client";
 
 import { useStats, useLeaderboard } from "@/hooks/useBackendData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion } from "framer-motion";
-import { useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useState, useEffect } from "react";
 import { Progress } from "@/components/ui/progress"; // Import the new Progress component
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Helper to format wallet addresses (e.g., 0x1234...5678)
 const formatAddress = (address: string) => {
@@ -22,22 +23,82 @@ const rankIcons: { [key: number]: string } = {
 export function FunFactsSection() {
   const { data: stats, isLoading: statsLoading } = useStats();
   const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard();
+  const [currentWeaponIndex, setCurrentWeaponIndex] = useState(0);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
-  const prizeWeapon = useMemo(() => {
+  const allWeapons = useMemo(() => {
     if (!stats?.weapon_equivalents || stats.weapon_equivalents.length === 0) {
-      return { 
-        name: "AWP | Dragon Lore", 
-        count: 0, 
-        img: "/skins/Dragon.webp", // Updated to simplified filename
-        progress: 0,
-        price_usd: 4000
-      };
+      return [
+        {
+          name: "AWP | Dragon Lore",
+          count: 0,
+          img: "/skins/Dragon.webp",
+          progress: 0,
+          price_usd: 4000,
+          raw_count: 0,
+        },
+      ];
     }
-    return stats.weapon_equivalents[0];
+    return stats.weapon_equivalents;
   }, [stats?.weapon_equivalents]);
-  
+
+  // Preload all weapon images
+  useEffect(() => {
+    if (allWeapons.length === 0) return;
+
+    let loadedCount = 0;
+    const totalImages = allWeapons.length;
+
+    const preloadImage = (src: string) => {
+      return new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedCount++;
+          if (loadedCount === totalImages) {
+            setImagesLoaded(true);
+          }
+          resolve();
+        };
+        img.onerror = () => {
+          loadedCount++;
+          if (loadedCount === totalImages) {
+            setImagesLoaded(true);
+          }
+          resolve(); // Still resolve on error to not block the UI
+        };
+        img.src = src;
+      });
+    };
+
+    // Preload all images
+    const preloadPromises = allWeapons.map((weapon) =>
+      preloadImage(weapon.img)
+    );
+    Promise.all(preloadPromises).then(() => {
+      setImagesLoaded(true);
+    });
+
+    // Reset loading state when weapons change
+    setImagesLoaded(false);
+  }, [allWeapons]);
+
+  const currentWeapon = allWeapons[currentWeaponIndex] || allWeapons[0];
+
+  const handlePreviousWeapon = () => {
+    setCurrentWeaponIndex((prev) =>
+      prev > 0 ? prev - 1 : allWeapons.length - 1
+    );
+  };
+
+  const handleNextWeapon = () => {
+    setCurrentWeaponIndex((prev) =>
+      prev < allWeapons.length - 1 ? prev + 1 : 0
+    );
+  };
+
   return (
-    <motion.section 
+    <motion.section
+      id="fun-facts-section"
       className="py-24 px-4 relative z-10"
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -47,7 +108,7 @@ export function FunFactsSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/10 to-transparent"></div>
 
       <div className="max-w-7xl mx-auto relative">
-        <motion.div 
+        <motion.div
           className="text-center mb-20"
           initial={{ opacity: 0, scale: 0.8 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -60,7 +121,7 @@ export function FunFactsSection() {
           <p className="text-xl text-red-200 max-w-2xl mx-auto">
             Explore live data from the betting pool.
           </p>
-           <motion.div
+          <motion.div
             className="w-40 h-2 bg-gradient-to-r from-yellow-500 to-red-500 mx-auto rounded-full mt-6"
             initial={{ scaleX: 0 }}
             whileInView={{ scaleX: 1 }}
@@ -70,7 +131,6 @@ export function FunFactsSection() {
         </motion.div>
 
         <div className="grid grid-cols-1 gap-12 items-start max-w-4xl mx-auto">
-          
           {/* Prize Pool Power Card - NOW ON TOP */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -78,8 +138,8 @@ export function FunFactsSection() {
             transition={{ duration: 0.8, delay: 0.3 }}
             viewport={{ once: true }}
           >
-             <Card className="glass-black p-6 lg:p-8 rounded-2xl border-2 border-red-500/30 h-full">
-               <CardHeader className="text-center p-0 mb-6">
+            <Card className="glass-black p-6 lg:p-8 rounded-2xl border-2 border-red-500/30 h-full">
+              <CardHeader className="text-center p-0 mb-6">
                 <CardTitle className="text-3xl font-bold text-red-100 tracking-wider">
                   Prize Pool Power
                 </CardTitle>
@@ -93,58 +153,142 @@ export function FunFactsSection() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full">
-                    <p className="text-xl text-red-200 mb-4">The current prize pool could buy</p>
-                    <motion.div 
-                      className="text-6xl font-black text-yellow-300 drop-shadow-lg mb-4"
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: "spring", stiffness: 100, damping: 10, delay: 0.2 }}
-                    >
-                      {typeof prizeWeapon.count === 'number' && !Number.isInteger(prizeWeapon.count) 
-                        ? prizeWeapon.count.toFixed(1) 
-                        : prizeWeapon.count.toLocaleString()
-                      }
-                    </motion.div>
-                    <p className="text-2xl font-bold text-red-100 mb-4">{prizeWeapon.name}(s)</p>
-                    <motion.img 
-                      src={prizeWeapon.img} 
-                      alt={prizeWeapon.name} 
-                      className="w-48 h-auto object-contain drop-shadow-lg mb-8"
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.8, delay: 0.4 }}
-                      onError={(e) => {
-                        console.error('图片加载失败 (移动端):', {
-                          originalSrc: prizeWeapon.img,
-                          userAgent: navigator.userAgent,
-                          error: e
-                        });
-                        // 尝试修复常见的问题
-                        const img = e.currentTarget;
-                        const originalSrc = prizeWeapon.img;
-                        
-                        // 尝试1: 移除文件名末尾的额外空格
-                        if (originalSrc.includes('  .webp')) {
-                          img.src = originalSrc.replace('  .webp', '.webp');
-                          return;
-                        }
-                        
-                        // 尝试2: 使用备用图片
-                        img.src = '/skins/Dragon.webp';
-                      }}
-                      loading="lazy"
-                    />
-                    
+                    <p className="text-xl text-red-200 mb-4">
+                      The current prize pool could buy
+                    </p>
+
+                    {/* Weapon Navigation */}
+                    <div className="relative flex items-center justify-center mb-4 w-full">
+                      <button
+                        type="button"
+                        onClick={handlePreviousWeapon}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 p-3 rounded-full bg-red-900/70 hover:bg-red-900/90 transition-colors z-10"
+                        disabled={allWeapons.length <= 1}
+                        aria-label="Previous weapon"
+                      >
+                        <ChevronLeft className="h-8 w-8 text-yellow-300" />
+                      </button>
+
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={currentWeaponIndex}
+                          className="text-6xl font-black text-yellow-300 drop-shadow-lg w-64 text-center"
+                          initial={{ scale: 0.8, opacity: 0, y: 10 }}
+                          animate={{ scale: 1, opacity: 1, y: 0 }}
+                          exit={{ scale: 1.2, opacity: 0, y: -10 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 25,
+                            duration: 0.3,
+                          }}
+                          layoutId="weapon-count"
+                        >
+                          {currentWeapon.count >= 1
+                            ? currentWeapon.count.toLocaleString()
+                            : currentWeapon.raw_count !== undefined
+                            ? currentWeapon.raw_count.toFixed(2)
+                            : "0.00"}
+                        </motion.div>
+                      </AnimatePresence>
+
+                      <button
+                        type="button"
+                        onClick={handleNextWeapon}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 p-3 rounded-full bg-red-900/70 hover:bg-red-900/90 transition-colors z-10"
+                        disabled={allWeapons.length <= 1}
+                        aria-label="Next weapon"
+                      >
+                        <ChevronRight className="h-8 w-8 text-yellow-300" />
+                      </button>
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={currentWeaponIndex}
+                        className="text-center"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      >
+                        <p className="text-2xl font-bold text-red-100 mb-4">
+                          {currentWeapon.name}(s)
+                        </p>
+                        <motion.img
+                          src={currentWeapon.img}
+                          alt={currentWeapon.name}
+                          className="w-48 h-auto object-contain drop-shadow-lg mb-8 mx-auto"
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 1.1, opacity: 0 }}
+                          transition={{ duration: 0.4, ease: "easeOut" }}
+                          onError={(e) => {
+                            console.error("图片加载失败 (移动端):", {
+                              originalSrc: currentWeapon.img,
+                              userAgent: navigator.userAgent,
+                              error: e,
+                            });
+                            // 尝试修复常见的问题
+                            const img = e.currentTarget;
+                            const originalSrc = currentWeapon.img;
+
+                            // 尝试1: 移除文件名末尾的额外空格
+                            if (originalSrc.includes("  .webp")) {
+                              img.src = originalSrc.replace("  .webp", ".webp");
+                              return;
+                            }
+
+                            // 尝试2: 使用备用图片
+                            img.src = "/skins/Dragon.webp";
+                          }}
+                        />
+                      </motion.div>
+                    </AnimatePresence>
+
                     {/* Progress Bar Section */}
                     <div className="w-full max-w-md">
                       <div className="flex justify-between items-center mb-2 text-red-200">
-                        <span>Progress to next one</span>
-                        <span className="font-semibold text-yellow-300">{prizeWeapon.progress.toFixed(2)}%</span>
+                        <span>
+                          {currentWeapon.count >= 1
+                            ? "Can buy multiple"
+                            : "Progress to buy one"}
+                        </span>
+                        <span className="font-semibold text-yellow-300">
+                          {currentWeapon.count >= 1
+                            ? "100%"
+                            : `${(currentWeapon.progress !== undefined
+                                ? currentWeapon.progress
+                                : 0
+                              ).toFixed(1)}%`}
+                        </span>
                       </div>
-                      <Progress value={prizeWeapon.progress} />
+                      <Progress
+                        value={
+                          currentWeapon.count >= 1
+                            ? 100
+                            : currentWeapon.progress !== undefined
+                            ? currentWeapon.progress
+                            : 0
+                        }
+                      />
                       <p className="text-sm text-red-400 mt-2">
-                        Current Value: ${prizeWeapon.price_usd.toFixed(2)} USD
+                        Current Value: ${currentWeapon.price_usd.toFixed(2)} USD
                       </p>
+                    </div>
+
+                    {/* Weapon Indicator */}
+                    <div className="flex justify-center mt-4 space-x-2">
+                      {allWeapons.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`w-2 h-2 rounded-full ${
+                            index === currentWeaponIndex
+                              ? "bg-yellow-300"
+                              : "bg-red-900/50"
+                          }`}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
@@ -167,36 +311,38 @@ export function FunFactsSection() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="space-y-4">
-                  {leaderboardLoading ? (
-                    [...Array(5)].map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full bg-red-900/50 rounded-lg" />
-                    ))
-                  ) : (
-                    leaderboard?.map((bettor, index) => (
-                      <motion.div
-                        key={bettor.address}
-                        className="flex items-center justify-between bg-red-900/30 p-4 rounded-lg"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <span className="text-2xl font-bold w-8 text-center">
-                            {rankIcons[bettor.rank] || bettor.rank}
+                  {leaderboardLoading
+                    ? [...Array(5)].map((_, i) => (
+                        <Skeleton
+                          key={i}
+                          className="h-12 w-full bg-red-900/50 rounded-lg"
+                        />
+                      ))
+                    : leaderboard?.map((bettor, index) => (
+                        <motion.div
+                          key={bettor.address}
+                          className="flex items-center justify-between bg-red-900/30 p-4 rounded-lg"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.5, delay: index * 0.1 }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <span className="text-2xl font-bold w-8 text-center">
+                              {rankIcons[bettor.rank] || bettor.rank}
+                            </span>
+                            <span className="font-semibold text-red-200">
+                              {formatAddress(bettor.address)}
+                            </span>
+                          </div>
+                          <span className="font-bold text-yellow-300 text-lg">
+                            {bettor.total_bet_eth.toFixed(3)} ETH
                           </span>
-                          <span className="font-semibold text-red-200">{formatAddress(bettor.address)}</span>
-                        </div>
-                        <span className="font-bold text-yellow-300 text-lg">
-                          {bettor.total_bet_eth.toFixed(3)} ETH
-                        </span>
-                      </motion.div>
-                    ))
-                  )}
+                        </motion.div>
+                      ))}
                 </div>
               </CardContent>
             </Card>
           </motion.div>
-
         </div>
       </div>
     </motion.section>

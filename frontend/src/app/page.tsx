@@ -1,18 +1,35 @@
-'use client';
+"use client";
 
-import { useStatus, useTeams, useStats, useEthPrice } from "@/hooks/useBackendData";
+import {
+  useStatus,
+  useTeams,
+  useStats,
+  useEthPrice,
+} from "@/hooks/useBackendData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  AnimatePresence,
+} from "framer-motion";
 import { useState, useEffect, useRef } from "react";
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
-import { useQueryClient } from '@tanstack/react-query';
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseEther } from "viem";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatedNumber, SlotMachineNumber } from "@/components/AnimatedNumber";
 import { FunFactsSection } from "@/components/FunFactsSection";
 import { ViewYourBetsSection } from "@/components/ViewYourBetsSection"; // Import the new component
@@ -24,22 +41,32 @@ const BET_ABI = [
     name: "bet",
     outputs: [],
     stateMutability: "payable",
-    type: "function"
-  }
+    type: "function",
+  },
 ] as const;
 
 // Contract address
-const CONTRACT_ADDRESS: `0x${string}` = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb5c4bea741cea63b2151d719b2cca12e80e6c7e8') as `0x${string}`;
+const CONTRACT_ADDRESS: `0x${string}` = (process.env
+  .NEXT_PUBLIC_CONTRACT_ADDRESS ||
+  "0xb5c4bea741cea63b2151d719b2cca12e80e6c7e8") as `0x${string}`;
 
-function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
+function HeroSection({
+  onScrollToBetting,
+  status,
+}: {
+  onScrollToBetting: () => void;
+  status?: any;
+}) {
   const [windowSize, setWindowSize] = useState({ width: 1920, height: 1080 });
-  const [particles, setParticles] = useState<Array<{x: number, y: number, delay: number, duration: number}>>([]);
+  const [particles, setParticles] = useState<
+    Array<{ x: number; y: number; delay: number; duration: number }>
+  >([]);
 
   useEffect(() => {
     // Only run on client side
     setWindowSize({
       width: window.innerWidth,
-      height: window.innerHeight
+      height: window.innerHeight,
     });
 
     // Generate particles data only once on client side
@@ -47,13 +74,22 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
       x: Math.random() * 100,
       y: Math.random() * 100,
       delay: Math.random() * 3,
-      duration: 3 + Math.random() * 2
+      duration: 3 + Math.random() * 2,
     }));
     setParticles(particleData);
   }, []);
 
+  const isContestEnded = status?.status === 2;
+  const buttonText = isContestEnded ? "View Results" : "Start Betting";
+  const handleButtonClick = isContestEnded
+    ? () => {
+        window.location.href = "/withdraw";
+      }
+    : onScrollToBetting;
+
   return (
     <motion.section
+      id="hero-section"
       className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -69,14 +105,14 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
           animate={{
             opacity: 1,
             y: 0,
-            rotateX: 0
+            rotateX: 0,
           }}
           transition={{
             type: "spring",
             damping: 12,
             stiffness: 100,
             duration: 1.2,
-            delay: 0.3
+            delay: 0.3,
           }}
         >
           <motion.span
@@ -87,7 +123,7 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
             transition={{
               duration: 3,
               repeat: Infinity,
-              ease: "linear"
+              ease: "linear",
             }}
             style={{
               backgroundSize: "200% 200%",
@@ -103,11 +139,11 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
             transition={{
               duration: 0.8,
               delay: 1.5,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
             style={{
               mixBlendMode: "overlay",
-              opacity: 0.8
+              opacity: 0.8,
             }}
           />
         </motion.h1>
@@ -132,7 +168,7 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
             <Button
               size="lg"
               className="relative bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-10 py-5 text-lg glow-hover border border-red-400/50 rounded-xl overflow-hidden group shadow-2xl shadow-red-500/25"
-              onClick={onScrollToBetting}
+              onClick={handleButtonClick}
             >
               {/* Animated background gradient */}
               <motion.div
@@ -153,15 +189,19 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
                   duration: 3,
                   repeat: Infinity,
                   ease: "easeInOut",
-                  delay: 2
+                  delay: 2,
                 }}
               />
 
               <span className="relative z-10 flex items-center space-x-2">
-                <span>Start Betting</span>
+                <span>{buttonText}</span>
                 <motion.span
                   animate={{ x: [0, 5, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                 >
                   →
                 </motion.span>
@@ -174,26 +214,37 @@ function HeroSection({ onScrollToBetting }: { onScrollToBetting: () => void }) {
   );
 }
 
-function StatsSection({ stats, status, statsLoading, statusLoading }: {
+function StatsSection({
+  stats,
+  status,
+  statsLoading,
+  statusLoading,
+}: {
   stats: any;
   status: any;
   statsLoading: boolean;
   statusLoading: boolean;
 }) {
   const totalParticipants = stats?.total_unique_participants || 0;
-  const totalPrizePoolEth = status?.total_prize_pool_wei ? parseFloat(status.total_prize_pool_wei) / 10**18 : 0;
+  const totalPrizePoolEth = status?.total_prize_pool_wei
+    ? parseFloat(status.total_prize_pool_wei) / 10 ** 18
+    : 0;
   const { data: ethPrice, isLoading: ethPriceLoading } = useEthPrice();
   const ethPriceValue = ethPrice ? parseFloat(ethPrice.price) : 0;
   const totalPrizePoolUsd = totalPrizePoolEth * ethPriceValue;
-  
-  // 检测数据来源
-  const dataSource = ethPrice ? 
-    (ethPrice.price === '3000' ? 'Fixed Rate' : 
-     (ethPrice.symbol === 'ETHUSD' ? 'CoinGecko' : 'Binance')) 
-    : 'Loading...';
+
+  // Detect data source
+  const dataSource = ethPrice
+    ? ethPrice.price === "3000"
+      ? "Fixed Rate"
+      : ethPrice.symbol === "ETHUSD"
+      ? "CoinGecko"
+      : "Binance"
+    : "Loading...";
 
   return (
     <motion.section
+      id="stats-section"
       className="py-24 px-4 relative z-10 overflow-hidden"
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -271,8 +322,13 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                         viewport={{ once: true }}
                       >
                         <p className="text-3xl lg:text-4xl font-black text-red-100 mb-1 drop-shadow-lg">
-                          <SlotMachineNumber value={totalPrizePoolEth} duration={5} />
-                          <span className="text-xl lg:text-2xl ml-1 text-red-300">ETH</span>
+                          <SlotMachineNumber
+                            value={totalPrizePoolEth}
+                            duration={5}
+                          />
+                          <span className="text-xl lg:text-2xl ml-1 text-red-300">
+                            ETH
+                          </span>
                         </p>
                       </motion.div>
                       <motion.div
@@ -286,7 +342,12 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                           <Skeleton className="h-6 w-20 bg-red-900/50 mx-auto rounded-lg" />
                         ) : (
                           <p className="text-xl lg:text-2xl font-bold text-yellow-300 drop-shadow-md">
-                            $<SlotMachineNumber value={totalPrizePoolUsd} duration={5} decimals={2} />
+                            $
+                            <SlotMachineNumber
+                              value={totalPrizePoolUsd}
+                              duration={5}
+                              decimals={2}
+                            />
                           </p>
                         )}
                       </motion.div>
@@ -331,7 +392,10 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                       transition={{ duration: 0.6, delay: 0.8 }}
                       viewport={{ once: true }}
                     >
-                      <AnimatedNumber value={totalParticipants} duration={0.8} />
+                      <AnimatedNumber
+                        value={totalParticipants}
+                        duration={0.8}
+                      />
                     </motion.p>
                   )}
                 </div>
@@ -386,26 +450,30 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
                       >
                         <motion.div
                           className={`w-3 h-3 rounded-full ${
-                            status?.status_text?.toLowerCase() === 'open'
-                              ? 'bg-green-400 shadow-lg shadow-green-400/50'
-                              : 'bg-yellow-400 shadow-lg shadow-yellow-400/50'
+                            status?.status_text?.toLowerCase() === "open"
+                              ? "bg-green-400 shadow-lg shadow-green-400/50"
+                              : "bg-yellow-400 shadow-lg shadow-yellow-400/50"
                           }`}
                           animate={{
                             scale: [1, 1.2, 1],
-                            opacity: [1, 0.7, 1]
+                            opacity: [1, 0.7, 1],
                           }}
                           transition={{
                             duration: 2,
                             repeat: Infinity,
-                            ease: "easeInOut"
+                            ease: "easeInOut",
                           }}
                         />
-                        <span className={`text-sm font-medium ${
-                          status?.status_text?.toLowerCase() === 'open'
-                            ? 'text-green-300'
-                            : 'text-yellow-300'
-                        }`}>
-                          {status?.status_text?.toLowerCase() === 'open' ? 'Active' : 'Pending'}
+                        <span
+                          className={`text-sm font-medium ${
+                            status?.status_text?.toLowerCase() === "open"
+                              ? "text-green-300"
+                              : "text-yellow-300"
+                          }`}
+                        >
+                          {status?.status_text?.toLowerCase() === "open"
+                            ? "Active"
+                            : "Pending"}
                         </span>
                       </motion.div>
                     </>
@@ -475,33 +543,50 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
   );
 }
 
-function BettingSection({ teams, status, teamsLoading }: {
+function BettingSection({
+  teams,
+  status,
+  teamsLoading,
+}: {
   teams: any[];
   status: any;
   teamsLoading: boolean;
 }) {
   const [selectedTeam, setSelectedTeam] = useState<any | null>(null);
-  const [betAmount, setBetAmount] = useState('');
+  const [betAmount, setBetAmount] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const { address, isConnected } = useAccount();
   const queryClient = useQueryClient();
-  
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error,
+    reset,
+  } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
   useEffect(() => {
-    if (isSuccess && address && selectedTeam !== null && selectedTeam !== undefined) {
+    if (
+      isSuccess &&
+      address &&
+      selectedTeam !== null &&
+      selectedTeam !== undefined
+    ) {
       // Transaction successful - backend event listeners will automatically sync the on-chain data
-      console.log("Bet transaction successful, backend will sync automatically via event listeners");
-      
+      console.log(
+        "Bet transaction successful, backend will sync automatically via event listeners"
+      );
+
       // Invalidate queries to refetch data after a successful bet
       // Add a delay to allow backend event listeners to process the transaction
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['teams'] });
-        queryClient.invalidateQueries({ queryKey: ['stats'] });
-        queryClient.invalidateQueries({ queryKey: ['status'] });
+        queryClient.invalidateQueries({ queryKey: ["teams"] });
+        queryClient.invalidateQueries({ queryKey: ["stats"] });
+        queryClient.invalidateQueries({ queryKey: ["status"] });
       }, 5000); // Wait 5 seconds for backend to sync
     }
   }, [isSuccess, address, selectedTeam, betAmount, queryClient]);
@@ -512,7 +597,7 @@ function BettingSection({ teams, status, teamsLoading }: {
       writeContract({
         address: CONTRACT_ADDRESS,
         abi: BET_ABI,
-        functionName: 'bet',
+        functionName: "bet",
         args: [BigInt(selectedTeam.id)],
         value: parseEther(betAmount),
       });
@@ -521,17 +606,17 @@ function BettingSection({ teams, status, teamsLoading }: {
 
   const handleOpenDialog = (team: any) => {
     setSelectedTeam(team);
-    setBetAmount('');
+    setBetAmount("");
     reset();
     setIsOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsOpen(false);
-  }
+  };
 
   // Find the winning team
-  const winningTeam = teams.find(team => team.is_winner);
+  const winningTeam = teams.find((team) => team.is_winner);
 
   return (
     <motion.section
@@ -543,7 +628,7 @@ function BettingSection({ teams, status, teamsLoading }: {
       viewport={{ once: true }}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/10 to-transparent"></div>
-      
+
       <div className="max-w-7xl mx-auto relative">
         {/* Section Title */}
         <motion.div
@@ -557,7 +642,8 @@ function BettingSection({ teams, status, teamsLoading }: {
             Place Your Bet
           </h2>
           <p className="text-xl text-red-200 max-w-2xl mx-auto">
-            Select a team to see their stats and place your bet. The prize pool is distributed to the winners.
+            Select a team to see their stats and place your bet. The prize pool
+            is distributed to the winners.
           </p>
           <motion.div
             className="w-40 h-2 bg-gradient-to-r from-red-500 to-yellow-500 mx-auto rounded-full mt-6"
@@ -570,63 +656,78 @@ function BettingSection({ teams, status, teamsLoading }: {
 
         {/* Teams Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {teamsLoading ? (
-            [...Array(8)].map((_, i) => (
-              <Card key={i} className="glass-red p-4 rounded-xl">
-                <Skeleton className="h-32 w-full bg-red-900/50 rounded-lg mb-4" />
-                <Skeleton className="h-6 w-3/4 bg-red-900/50 rounded-md mb-2" />
-                <Skeleton className="h-4 w-1/2 bg-red-900/50 rounded-md" />
-              </Card>
-            ))
-          ) : (
-            teams.map(team => (
-              <motion.div
-                key={team.id}
-                initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                whileHover={{ scale: 1.05, transition: { duration: 0.3 } }}
-                transition={{ duration: 0.5 }}
-                viewport={{ once: true }}
-                className={`relative rounded-2xl overflow-hidden group transform transition-all duration-300 ${
-                  winningTeam ? (winningTeam.id === team.id ? 'shadow-2xl shadow-yellow-400/50 border-2 border-yellow-400' : 'opacity-50 grayscale') : ''
-                }`}
-              >
-                <Card 
-                  className="glass-black p-6 rounded-2xl h-full flex flex-col items-center text-center cursor-pointer border-2 border-transparent group-hover:border-red-500 transition-colors duration-300"
-                  onClick={() => handleOpenDialog(team)}
-                >
-                  {/* Winner Badge */}
-                  {winningTeam && winningTeam.id === team.id && (
-                    <motion.div
-                      className="absolute top-3 right-3 bg-yellow-400 text-gray-900 font-bold px-4 py-1 rounded-full text-sm shadow-lg"
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: 'spring', damping: 10, stiffness: 150, delay: 0.5 }}
-                    >
-                      WINNER
-                    </motion.div>
-                  )}
-                  <CardHeader className="p-0 mb-4">
-                    <motion.img 
-                      src={team.logo_url} 
-                      alt={team.name} 
-                      className="w-24 h-24 mx-auto object-contain drop-shadow-lg"
-                      whileHover={{ rotate: [0, -10, 10, 0], transition: { duration: 0.5 } }}
-                    />
-                  </CardHeader>
-                  <CardContent className="p-0 flex flex-col flex-grow justify-center">
-                    <CardTitle className="text-2xl font-bold text-red-100 mb-2">{team.name}</CardTitle>
-                    <p className="text-red-300">
-                      Prize Pool: <span className="font-semibold text-yellow-300">{(team.prize_pool_eth ?? 0).toFixed(4)} ETH</span>
-                    </p>
-                    <p className="text-sm text-red-400 mt-1">
-                      {team.bets_count} Bets
-                    </p>
-                  </CardContent>
+          {teamsLoading
+            ? [...Array(8)].map((_, i) => (
+                <Card key={i} className="glass-red p-4 rounded-xl">
+                  <Skeleton className="h-32 w-full bg-red-900/50 rounded-lg mb-4" />
+                  <Skeleton className="h-6 w-3/4 bg-red-900/50 rounded-md mb-2" />
+                  <Skeleton className="h-4 w-1/2 bg-red-900/50 rounded-md" />
                 </Card>
-              </motion.div>
-            ))
-          )}
+              ))
+            : teams.map((team) => (
+                <motion.div
+                  key={team.id}
+                  initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  whileHover={{ scale: 1.05, transition: { duration: 0.3 } }}
+                  transition={{ duration: 0.5 }}
+                  viewport={{ once: true }}
+                  className={`relative rounded-2xl overflow-hidden group transform transition-all duration-300 ${
+                    winningTeam
+                      ? winningTeam.id === team.id
+                        ? "shadow-2xl shadow-yellow-400/50 border-2 border-yellow-400"
+                        : "opacity-50 grayscale"
+                      : ""
+                  }`}
+                >
+                  <Card
+                    className="glass-black p-6 rounded-2xl h-full flex flex-col items-center text-center cursor-pointer border-2 border-transparent group-hover:border-red-500 transition-colors duration-300"
+                    onClick={() => handleOpenDialog(team)}
+                  >
+                    {/* Winner Badge */}
+                    {winningTeam && winningTeam.id === team.id && (
+                      <motion.div
+                        className="absolute top-3 right-3 bg-yellow-400 text-gray-900 font-bold px-4 py-1 rounded-full text-sm shadow-lg"
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{
+                          type: "spring",
+                          damping: 10,
+                          stiffness: 150,
+                          delay: 0.5,
+                        }}
+                      >
+                        WINNER
+                      </motion.div>
+                    )}
+                    <CardHeader className="p-0 mb-4">
+                      <motion.img
+                        src={team.logo_url}
+                        alt={team.name}
+                        className="w-24 h-24 mx-auto object-contain drop-shadow-lg"
+                        whileHover={{
+                          rotate: [0, -10, 10, 0],
+                          transition: { duration: 0.5 },
+                        }}
+                      />
+                    </CardHeader>
+                    <CardContent className="p-0 flex flex-col flex-grow justify-center">
+                      <CardTitle className="text-2xl font-bold text-red-100 mb-2">
+                        {team.name}
+                      </CardTitle>
+                      <p className="text-red-300">
+                        Prize Pool:{" "}
+                        <span className="font-semibold text-yellow-300">
+                          {(team.prize_pool_eth ?? 0).toFixed(4)} ETH
+                        </span>
+                      </p>
+                      <p className="text-sm text-red-400 mt-1">
+                        {team.bets_count} Bets
+                      </p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
         </div>
       </div>
 
@@ -636,9 +737,15 @@ function BettingSection({ teams, status, teamsLoading }: {
           <DialogHeader>
             {selectedTeam && (
               <div className="flex items-center space-x-4 mb-4">
-                <img src={selectedTeam.logo_url} alt={selectedTeam.name} className="w-16 h-16 object-contain" />
+                <img
+                  src={selectedTeam.logo_url}
+                  alt={selectedTeam.name}
+                  className="w-16 h-16 object-contain"
+                />
                 <div>
-                  <DialogTitle className="text-3xl font-bold text-red-100">Bet on {selectedTeam.name}</DialogTitle>
+                  <DialogTitle className="text-3xl font-bold text-red-100">
+                    Bet on {selectedTeam.name}
+                  </DialogTitle>
                   <DialogDescription className="text-red-300">
                     Your bet will be added to this team's prize pool.
                   </DialogDescription>
@@ -646,11 +753,14 @@ function BettingSection({ teams, status, teamsLoading }: {
               </div>
             )}
           </DialogHeader>
-          
+
           {!isSuccess && !isConfirming && !isPending && (
             <form onSubmit={handleBet} className="space-y-6">
               <div>
-                <label htmlFor="betAmount" className="block text-sm font-medium text-red-200 mb-2">
+                <label
+                  htmlFor="betAmount"
+                  className="block text-sm font-medium text-red-200 mb-2"
+                >
                   Bet Amount (ETH)
                 </label>
                 <Input
@@ -672,16 +782,18 @@ function BettingSection({ teams, status, teamsLoading }: {
                   className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 text-lg glow-hover border border-red-400/50"
                   disabled={isPending || !betAmount}
                 >
-                  {isPending ? 'Waiting for wallet...' : `Place Bet`}
+                  {isPending ? "Waiting for wallet..." : `Place Bet`}
                 </Button>
               ) : (
                 <div className="text-center p-4 bg-red-900/50 rounded-lg">
-                  <p className="font-semibold text-yellow-300">Please connect your wallet to bet.</p>
+                  <p className="font-semibold text-yellow-300">
+                    Please connect your wallet to bet.
+                  </p>
                 </div>
               )}
               {error && (
                 <div className="text-red-400 text-sm mt-2 text-center break-words">
-                  <p>Error: {error.message.split('(')[0]}</p>
+                  <p>Error: {error.message.split("(")[0]}</p>
                 </div>
               )}
             </form>
@@ -695,11 +807,21 @@ function BettingSection({ teams, status, teamsLoading }: {
                 className="w-16 h-16 border-4 border-t-red-400 border-red-800 rounded-full"
               />
               <p className="text-xl font-semibold text-red-200">
-                {isPending ? 'Waiting for signature...' : 'Processing transaction...'}
+                {isPending
+                  ? "Waiting for signature..."
+                  : "Processing transaction..."}
               </p>
-              <p className="text-red-300 text-sm text-center">Your transaction is being confirmed on the blockchain. This may take a moment.</p>
+              <p className="text-red-300 text-sm text-center">
+                Your transaction is being confirmed on the blockchain. This may
+                take a moment.
+              </p>
               {hash && (
-                <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" rel="noopener noreferrer" className="text-sm text-yellow-300 hover:text-yellow-200 underline mt-2">
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-yellow-300 hover:text-yellow-200 underline mt-2"
+                >
                   View on Etherscan
                 </a>
               )}
@@ -711,26 +833,55 @@ function BettingSection({ teams, status, teamsLoading }: {
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: 'spring', damping: 10, stiffness: 150 }}
+                transition={{ type: "spring", damping: 10, stiffness: 150 }}
                 className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center"
               >
-                <svg className="w-12 h-12 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-12 h-12 text-green-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </motion.div>
-              <p className="text-2xl font-bold text-green-300">Bet Placed Successfully!</p>
+              <p className="text-2xl font-bold text-green-300">
+                Bet Placed Successfully!
+              </p>
               <p className="text-red-200">
-                You have successfully bet <span className="font-bold text-yellow-300">{betAmount} ETH</span> on <span className="font-bold text-yellow-300">{selectedTeam?.name}</span>.
+                You have successfully bet{" "}
+                <span className="font-bold text-yellow-300">
+                  {betAmount} ETH
+                </span>{" "}
+                on{" "}
+                <span className="font-bold text-yellow-300">
+                  {selectedTeam?.name}
+                </span>
+                .
               </p>
               {hash && (
-                 <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" rel="noopener noreferrer" className="text-sm text-yellow-300 hover:text-yellow-200 underline mt-2">
-                   View on Etherscan
-                 </a>
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-yellow-300 hover:text-yellow-200 underline mt-2"
+                >
+                  View on Etherscan
+                </a>
               )}
-              <Button onClick={handleCloseDialog} className="mt-6 bg-red-600 hover:bg-red-700">Close</Button>
+              <Button
+                onClick={handleCloseDialog}
+                className="mt-6 bg-red-600 hover:bg-red-700"
+              >
+                Close
+              </Button>
             </div>
           )}
-
         </DialogContent>
       </Dialog>
     </motion.section>
@@ -745,20 +896,29 @@ function MainContent() {
   const bettingSectionRef = useRef<HTMLDivElement>(null);
 
   const handleScrollToBetting = () => {
-    bettingSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bettingSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <>
-      <HeroSection onScrollToBetting={handleScrollToBetting} />
-      <StatsSection stats={stats} status={status} statsLoading={statsLoading} statusLoading={statusLoading} />
+      <HeroSection onScrollToBetting={handleScrollToBetting} status={status} />
+      <StatsSection
+        stats={stats}
+        status={status}
+        statsLoading={statsLoading}
+        statusLoading={statusLoading}
+      />
       <div ref={bettingSectionRef}>
-        <BettingSection teams={teams || []} status={status} teamsLoading={teamsLoading} />
+        <BettingSection
+          teams={teams || []}
+          status={status}
+          teamsLoading={teamsLoading}
+        />
       </div>
       <ViewYourBetsSection />
       <FunFactsSection />
     </>
-  )
+  );
 }
 
 export default function Home() {
@@ -773,15 +933,15 @@ export default function Home() {
     const unsubscribe = scrollY.onChange((value) => {
       const sectionHeight = window.innerHeight;
       const newSection = Math.floor(value / sectionHeight);
-      setCurrentSection(Math.min(newSection, 2)); // 最多3个section
+      setCurrentSection(Math.min(newSection, 4)); // 现在有5个section，最大索引为4
     });
 
     return unsubscribe;
   }, [scrollY]);
 
   const scrollToBetting = () => {
-    const bettingSection = document.getElementById('betting-section');
-    bettingSection?.scrollIntoView({ behavior: 'smooth' });
+    const bettingSection = document.getElementById("betting-section");
+    bettingSection?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -804,7 +964,10 @@ export default function Home() {
 
         {/* 动态光球效果 */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/8 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-yellow-500/6 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div
+          className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-yellow-500/6 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        ></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-red-500/3 to-transparent rounded-full blur-3xl"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-red-500/5 to-transparent rounded-full blur-3xl"></div>
 
@@ -817,7 +980,7 @@ export default function Home() {
           }}
           transition={{
             rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-            scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+            scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
           }}
         />
         <motion.div
@@ -828,7 +991,12 @@ export default function Home() {
           }}
           transition={{
             rotate: { duration: 15, repeat: Infinity, ease: "easeInOut" },
-            scale: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }
+            scale: {
+              duration: 5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            },
           }}
         />
 
@@ -843,7 +1011,7 @@ export default function Home() {
             duration: 3,
             repeat: Infinity,
             ease: "easeInOut",
-            delay: 0.5
+            delay: 0.5,
           }}
         />
         <motion.div
@@ -856,7 +1024,7 @@ export default function Home() {
             duration: 4,
             repeat: Infinity,
             ease: "easeInOut",
-            delay: 1.5
+            delay: 1.5,
           }}
         />
       </div>
@@ -873,7 +1041,7 @@ export default function Home() {
 
       {/* 页面内容 */}
       <div className="relative z-10">
-        <HeroSection onScrollToBetting={scrollToBetting} />
+        <HeroSection onScrollToBetting={scrollToBetting} status={status} />
         <StatsSection
           stats={stats}
           status={status}
@@ -899,21 +1067,29 @@ export default function Home() {
         transition={{ duration: 0.6, delay: 1.5 }}
       >
         <div className="flex flex-col space-y-2">
-          {[0, 1, 2].map((index) => (
-            <motion.div
-              key={index}
-              className={`w-3 h-3 rounded-full cursor-pointer transition-all duration-300 ${
-                currentSection === index ? 'bg-red-400 glow' : 'bg-red-600/50'
-              }`}
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                const sections = ['hero-section', 'stats-section', 'betting-section'];
-                const element = document.getElementById(sections[index]);
-                element?.scrollIntoView({ behavior: 'smooth' });
-              }}
-            />
-          ))}
+          {(() => {
+            const sections = [
+              "hero-section",
+              "stats-section",
+              "betting-section",
+              "your-bets-section",
+              "fun-facts-section",
+            ];
+            return sections.map((sectionId, index) => (
+              <motion.div
+                key={index}
+                className={`w-3 h-3 rounded-full cursor-pointer transition-all duration-300 ${
+                  currentSection === index ? "bg-red-400 glow" : "bg-red-600/50"
+                }`}
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  const element = document.getElementById(sectionId);
+                  element?.scrollIntoView({ behavior: "smooth" });
+                }}
+              />
+            ));
+          })()}
         </div>
       </motion.div>
     </div>

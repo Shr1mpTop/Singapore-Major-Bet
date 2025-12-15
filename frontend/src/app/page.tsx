@@ -14,7 +14,8 @@ import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatedNumber, SlotMachineNumber } from "@/components/AnimatedNumber";
-import { FunFactsSection } from "@/components/FunFactsSection"; // Import the new component
+import { FunFactsSection } from "@/components/FunFactsSection";
+import { ViewYourBetsSection } from "@/components/ViewYourBetsSection"; // Import the new component
 
 // Contract ABI - bet function
 const BET_ABI = [
@@ -186,7 +187,10 @@ function StatsSection({ stats, status, statsLoading, statusLoading }: {
   const totalPrizePoolUsd = totalPrizePoolEth * ethPriceValue;
   
   // 检测数据来源
-  const dataSource = ethPrice && ethPrice.price === '3000' ? 'Fixed Rate' : 'Binance';
+  const dataSource = ethPrice ? 
+    (ethPrice.price === '3000' ? 'Fixed Rate' : 
+     (ethPrice.symbol === 'ETHUSD' ? 'CoinGecko' : 'Binance')) 
+    : 'Loading...';
 
   return (
     <motion.section
@@ -751,7 +755,8 @@ function MainContent() {
       <div ref={bettingSectionRef}>
         <BettingSection teams={teams || []} status={status} teamsLoading={teamsLoading} />
       </div>
-      <FunFactsSection /> {/* Add the new component here */}
+      <ViewYourBetsSection />
+      <FunFactsSection />
     </>
   )
 }
@@ -882,7 +887,8 @@ export default function Home() {
             teamsLoading={teamsLoading}
           />
         </div>
-        <FunFactsSection /> {/* Add the new component here */}
+        <ViewYourBetsSection />
+        <FunFactsSection />
       </div>
 
       {/* 页面指示器 */}

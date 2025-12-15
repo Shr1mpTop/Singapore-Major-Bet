@@ -97,16 +97,33 @@ export function useEthPrice() {
         const response = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT', {
           timeout: 5000, // 5秒超时
         });
+        console.log('✅ ETH价格获取成功（币安API）:', response.data);
         return response.data;
-      } catch (error) {
-        return {
-          symbol: 'ETHUSDT',
-          price: '3000'
-        };
+      } catch (binanceError) {
+        console.warn('币安API不可用，尝试CoinGecko API:', binanceError);
+        try {
+          // 备用：使用CoinGecko API
+          const coingeckoResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd', {
+            timeout: 5000, // 5秒超时
+          });
+          const price = coingeckoResponse.data.ethereum.usd;
+          console.log('ETH价格获取成功（CoinGecko API）:', price);
+          return {
+            symbol: 'ETHUSD',
+            price: price.toString()
+          };
+        } catch (coingeckoError) {
+          console.warn('CoinGecko API也不可用，使用备用汇率3000:', coingeckoError);
+          // 最后备用：固定汇率
+          return {
+            symbol: 'ETHUSD',
+            price: '3000'
+          };
+        }
       }
     },
     refetchInterval: 10000, // Refresh every 10 seconds for price data
-    retry: 2, // 失败时重试2次
+    retry: 1, // 减少重试次数，因为我们有备用API
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 指数退避
   });
 }

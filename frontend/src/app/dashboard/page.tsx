@@ -63,31 +63,16 @@ function TeamBetCard({ team, totalPool }: { team: TeamData; totalPool: number })
   useEffect(() => {
     console.log('useEffect triggered:', { isSuccess, address, hash });
     if (isSuccess && address) {
-      // 记录用户下注到后端数据库（事件监听器会自动同步链上数据）
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5001/api';
-      fetch(`${API_BASE_URL}/record_bet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userAddress: address,
-          teamId: teamProps.id,
-          amount: (parseEther(betAmount)).toString(),  // Wei string
-        }),
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => console.log('Bet recorded:', data))
-      .catch((error) => {
-        console.error('Record bet error:', error);
-        alert('记录下注失败，请检查后端。');
-      });
+      // Transaction successful - backend event listeners will automatically sync on-chain data
+      console.log("Bet transaction successful, backend will sync automatically via event listeners");
       
-      // 注意：不再需要手动调用sync，事件监听器会自动处理数据同步
-      // 数据会在几秒内通过事件监听器自动更新
+      // Invalidate queries to refetch data after a successful bet
+      // Add a delay to allow backend event listeners to process transaction
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['teams'] });
+        queryClient.invalidateQueries({ queryKey: ['stats'] });
+        queryClient.invalidateQueries({ queryKey: ['status'] });
+      }, 5000); // Wait 5 seconds for backend to sync
       
       // 关闭弹窗
       setIsOpen(false);

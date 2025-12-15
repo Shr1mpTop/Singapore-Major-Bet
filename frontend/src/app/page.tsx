@@ -486,27 +486,16 @@ function BettingSection({ teams, status, teamsLoading }: {
 
   useEffect(() => {
     if (isSuccess && address && selectedTeam !== null && selectedTeam !== undefined) {
-      // Record user bet to backend database (event listeners will automatically sync on-chain data)
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5001/api';
-      fetch(`${API_BASE_URL}/record_bet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userAddress: address,
-          teamId: selectedTeam.id,
-          amount: (parseEther(betAmount)).toString(),  // Wei string
-        }),
-      })
-      .then(response => {
-        if (!response.ok) {
-          console.error("Failed to record bet to backend");
-        }
-        // Invalidate queries to refetch data after a successful bet
+      // Transaction successful - backend event listeners will automatically sync the on-chain data
+      console.log("Bet transaction successful, backend will sync automatically via event listeners");
+      
+      // Invalidate queries to refetch data after a successful bet
+      // Add a delay to allow backend event listeners to process the transaction
+      setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['teams'] });
         queryClient.invalidateQueries({ queryKey: ['stats'] });
         queryClient.invalidateQueries({ queryKey: ['status'] });
-      })
-      .catch(error => console.error("Error recording bet:", error));
+      }, 5000); // Wait 5 seconds for backend to sync
     }
   }, [isSuccess, address, selectedTeam, betAmount, queryClient]);
 

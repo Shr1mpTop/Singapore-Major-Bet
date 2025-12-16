@@ -6,6 +6,12 @@ This platform moves beyond traditional betting systems by recording every wager 
 
 ---
 
+### 🟢 Live Platform Status
+
+[![Website Status](https://img.shields.io/website?down_color=red&down_message=Offline%20%28Warning%29&label=Major%20Bet&style=for-the-badge&up_color=success&up_message=Online&url=https%3A%2F%2Fmajor.hezhili.online)](https://major.hezhili.online/)
+
+**Visit the platform:** [https://major.hezhili.online/](https://major.hezhili.online/)
+
 ## Core Features
 
 -   **Decentralized Betting Engine**: All bets are processed as blockchain transactions, ensuring security and eliminating the need for a trusted third party.

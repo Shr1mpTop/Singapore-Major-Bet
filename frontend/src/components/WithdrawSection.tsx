@@ -206,7 +206,9 @@ export function WithdrawSection() {
   const canWithdraw = status?.status === 2 || status?.status === 3; // Finished or Refunding
   const hasWithdrawableVotes =
     votingHistory?.votes &&
-    votingHistory.votes.some((vote) => calculateWithdrawableAmount(vote) > 0);
+    votingHistory.votes.some(
+      (vote: VotingHistory["votes"][0]) => calculateWithdrawableAmount(vote) > 0
+    );
 
   if (!address) {
     return (
@@ -571,94 +573,96 @@ export function WithdrawSection() {
 
               <div className="space-y-3">
                 <AnimatePresence>
-                  {votingHistory.votes.map((vote, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 1.2 + index * 0.1, duration: 0.5 }}
-                      whileHover={{ scale: 1.02 }}
-                      className={`p-4 rounded-xl border bg-red-900/6 transition-all duration-200 ${
-                        vote.status === "Won"
-                          ? "border-green-500/20"
-                          : "border-red-500/30"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`p-2 rounded-full ${
-                              vote.status === "Won"
-                                ? "bg-green-500/20"
-                                : "bg-red-500/20"
-                            }`}
-                          >
-                            {vote.status === "Won" ? (
-                              <TrendingUp className="w-5 h-5 text-green-400" />
-                            ) : (
-                              <TrendingDown className="w-5 h-5 text-red-400" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-lg font-bold text-white">
-                              {vote.team_name}
-                            </p>
-                            <p className="text-sm text-gray-300">
-                              Staked:{" "}
-                              <span className="text-blue-400 font-semibold">
-                                <AnimatedNumber
-                                  value={vote.amount_eth}
-                                  decimals={4}
-                                />{" "}
-                                ETH
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div
-                            className={`text-sm font-medium px-3 py-1 rounded-full ${
-                              vote.status === "Won"
-                                ? "bg-green-800/10 text-green-300"
-                                : "bg-red-800/10 text-red-300"
-                            }`}
-                          >
-                            {vote.status}
-                          </div>
-                          <div className="mt-2 space-y-1">
-                            <p className="text-sm text-gray-300">
-                              Returned:{" "}
-                              <span className="text-green-400 font-semibold">
-                                <AnimatedNumber
-                                  value={vote.payout_eth}
-                                  decimals={4}
-                                />{" "}
-                                ETH
-                              </span>
-                            </p>
-                            <p
-                              className={`text-sm font-semibold ${
-                                vote.payout_eth - vote.amount_eth >= 0
-                                  ? "text-green-400"
-                                  : "text-red-400"
+                  {votingHistory.votes.map(
+                    (vote: VotingHistory["votes"][0], index: number) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 1.2 + index * 0.1, duration: 0.5 }}
+                        whileHover={{ scale: 1.02 }}
+                        className={`p-4 rounded-xl border bg-red-900/6 transition-all duration-200 ${
+                          vote.status === "Won"
+                            ? "border-green-500/20"
+                            : "border-red-500/30"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`p-2 rounded-full ${
+                                vote.status === "Won"
+                                  ? "bg-green-500/20"
+                                  : "bg-red-500/20"
                               }`}
                             >
-                              P/L:{" "}
-                              {vote.payout_eth - vote.amount_eth >= 0
-                                ? "+"
-                                : ""}
-                              <AnimatedNumber
-                                value={vote.payout_eth - vote.amount_eth}
-                                decimals={4}
-                              />{" "}
-                              ETH
-                            </p>
+                              {vote.status === "Won" ? (
+                                <TrendingUp className="w-5 h-5 text-green-400" />
+                              ) : (
+                                <TrendingDown className="w-5 h-5 text-red-400" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-white">
+                                {vote.team_name}
+                              </p>
+                              <p className="text-sm text-gray-300">
+                                Staked:{" "}
+                                <span className="text-blue-400 font-semibold">
+                                  <AnimatedNumber
+                                    value={vote.amount_eth}
+                                    decimals={4}
+                                  />{" "}
+                                  ETH
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div
+                              className={`text-sm font-medium px-3 py-1 rounded-full ${
+                                vote.status === "Won"
+                                  ? "bg-green-800/10 text-green-300"
+                                  : "bg-red-800/10 text-red-300"
+                              }`}
+                            >
+                              {vote.status}
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              <p className="text-sm text-gray-300">
+                                Returned:{" "}
+                                <span className="text-green-400 font-semibold">
+                                  <AnimatedNumber
+                                    value={vote.payout_eth}
+                                    decimals={4}
+                                  />{" "}
+                                  ETH
+                                </span>
+                              </p>
+                              <p
+                                className={`text-sm font-semibold ${
+                                  vote.payout_eth - vote.amount_eth >= 0
+                                    ? "text-green-400"
+                                    : "text-red-400"
+                                }`}
+                              >
+                                P/L:{" "}
+                                {vote.payout_eth - vote.amount_eth >= 0
+                                  ? "+"
+                                  : ""}
+                                <AnimatedNumber
+                                  value={vote.payout_eth - vote.amount_eth}
+                                  decimals={4}
+                                />{" "}
+                                ETH
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    )
+                  )}
                 </AnimatePresence>
               </div>
             </motion.div>
@@ -699,8 +703,11 @@ export function WithdrawSection() {
             </p>
           ) : (
             votingHistory?.votes
-              ?.filter((vote) => calculateWithdrawableAmount(vote) > 0)
-              .map((vote) => {
+              ?.filter(
+                (vote: VotingHistory["votes"][0]) =>
+                  calculateWithdrawableAmount(vote) > 0
+              )
+              .map((vote: VotingHistory["votes"][0]) => {
                 const withdrawableAmount = calculateWithdrawableAmount(vote);
                 const isUserWinner = isWinner(vote.team_id);
                 const teamName = vote.team_name || `Team ${vote.team_id}`;

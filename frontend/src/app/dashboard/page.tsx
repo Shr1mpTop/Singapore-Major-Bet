@@ -50,8 +50,8 @@ function TeamVoteCard({
   // 从 TeamData 转换/重命名 props 以匹配组件的期望
   const teamProps = {
     ...team,
-    total_vote_wei: (team.prize_pool_eth * 10 ** 18).toString(),
-    supporters: team.votes_count,
+    total_vote_wei: (team.total_vote_amount_eth * 10 ** 18).toString(),
+    supporters: team.supporter_count,
   };
 
   console.log("TeamVoteCard rendering for team:", team.id, team.name);
